@@ -8,7 +8,7 @@
     <div class="d-flex justify-content-between align-items-center p-3">
             <h3 class="mb-0">Data Produk</h3>
 
-            <?php if ($_SESSION['role'] == 'admin') { ?>  
+            <?php if ($_SESSION['role'] == 'sales') { ?>  
               <div class="d-flex justify-content-end gap-2">
                 <a href="dashboard_admin.php?menu=tambah_stok"
                   class="btn btn-primary px-4 py-2"

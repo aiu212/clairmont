@@ -26,8 +26,8 @@ while ($row = mysqli_fetch_assoc($qGrafik)) {
 
 
 // Redirect kalau belum login
-if ($_SESSION['role'] != 'admin') {
-    header("Location: ../login.php");
+if (!isset($_SESSION['login'], $_SESSION['role']) || $_SESSION['login'] !== true || $_SESSION['role'] !== 'sales') {
+    header("Location: login.php");
     exit;
 }
 
@@ -43,7 +43,7 @@ header("Expires: 0");
   <!--begin::Head-->
   <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
-    <title>Clairmont - Dashboard Admin</title>
+    <title>Clairmont - Dashboard Sales</title>
 
     <!--begin::Accessibility Meta Tags-->
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />

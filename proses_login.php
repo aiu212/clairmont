@@ -1,69 +1,70 @@
 <?php
 session_start();
-include 'koneksi2.php';
+require_once 'koneksi2.php';
 
-if (isset($_POST['btnLogin'])) {
-
-    $email    = mysqli_real_escape_string($koneksi, $_POST['txtUsername']);
-    $password = $_POST['txtPassword'];
-
-    $query = mysqli_query($koneksi, "
-        SELECT * FROM tb_users 
-        WHERE email = '$email'
-    ");
-
-    if (mysqli_num_rows($query) > 0) {
-
-        $data = mysqli_fetch_assoc($query);
-
-        $dbPassword = $data['password'];
-        $loginValid = false;
-
-        // 🔐 Cek apakah password di database sudah di-hash
-        if (password_verify($password, $dbPassword)) {
-            $loginValid = true;
-        }
-        // 🧾 Untuk akun lama (password belum di-hash)
-        else if ($password === $dbPassword) {
-            $loginValid = true;
-
-            // 🛡 Upgrade otomatis: hash password lama
-            $newHash = password_hash($password, PASSWORD_DEFAULT);
-            mysqli_query($koneksi, "
-                UPDATE tb_users 
-                SET password='$newHash'
-                WHERE id_user='{$data['id_user']}'
-            ");
-        }
-
-        if ($loginValid) {
-
-            $_SESSION['login']   = true;
-            $_SESSION['id_user'] = $data['id_user'];
-            $_SESSION['email']   = $data['email'];
-            $_SESSION['nama']    = $data['nama'];
-            $_SESSION['role']    = $data['role'];
-
-            if ($data['role'] == 'admin') {
-                header("Location: dashboard_admin.php");
-            } elseif ($data['role'] == 'owner') {
-                header("Location: dashboard_owner.php");
-            } else {
-                header("Location: dashboard_customer.php");
-            }
-            exit;
-        }
-
-        echo "<script>
-            alert('Password salah!');
-            window.location='login.php';
-        </script>";
-
-    } else {
-        echo "<script>
-            alert('Email tidak ditemukan!');
-            window.location='login.php';
-        </script>";
-    }
+if ($_SERVER['REQUEST_METHOD'] !== 'POST' || !isset($_POST['btnLogin'])) {
+    header('Location: login.php');
+    exit;
 }
+
+$email = trim($_POST['txtUsername'] ?? '');
+$password = $_POST['txtPassword'] ?? '';
+
+$stmt = mysqli_prepare($koneksi, "SELECT id_user, nama, email, password, role, status FROM tb_users WHERE email = ? LIMIT 1");
+if (!$stmt) {
+    die('Terjadi kesalahan saat menyiapkan login.');
+}
+mysqli_stmt_bind_param($stmt, 's', $email);
+mysqli_stmt_execute($stmt);
+$result = mysqli_stmt_get_result($stmt);
+$user = mysqli_fetch_assoc($result);
+mysqli_stmt_close($stmt);
+
+if (!$user) {
+    echo "<script>alert('Email tidak ditemukan!'); window.location='login.php';</script>";
+    exit;
+}
+
+if (($user['status'] ?? '') !== 'aktif') {
+    echo "<script>alert('Akun tidak aktif. Hubungi pengelola sistem.'); window.location='login.php';</script>";
+    exit;
+}
+
+$dbPassword = $user['password'];
+$valid = password_verify($password, $dbPassword);
+
+// Kompatibilitas untuk akun lama yang password-nya masih tersimpan sebagai teks biasa.
+if (!$valid && hash_equals((string)$dbPassword, (string)$password)) {
+    $valid = true;
+    $newHash = password_hash($password, PASSWORD_DEFAULT);
+    $update = mysqli_prepare($koneksi, "UPDATE tb_users SET password = ? WHERE id_user = ?");
+    mysqli_stmt_bind_param($update, 'si', $newHash, $user['id_user']);
+    mysqli_stmt_execute($update);
+    mysqli_stmt_close($update);
+}
+
+if (!$valid) {
+    echo "<script>alert('Password salah!'); window.location='login.php';</script>";
+    exit;
+}
+
+$role = $user['role'];
+if (!in_array($role, ['sales', 'customer'], true)) {
+    echo "<script>alert('Role akun belum disesuaikan. Jalankan migrasi role terlebih dahulu.'); window.location='login.php';</script>";
+    exit;
+}
+
+session_regenerate_id(true);
+$_SESSION['login'] = true;
+$_SESSION['id_user'] = (int)$user['id_user'];
+$_SESSION['email'] = $user['email'];
+$_SESSION['nama'] = $user['nama'];
+$_SESSION['role'] = $role;
+
+if ($role === 'sales') {
+    header('Location: dashboard_admin.php'); // dashboard operasional Sales yang dipakai sementara
+} else {
+    header('Location: dashboard_customer.php');
+}
+exit;
 ?>

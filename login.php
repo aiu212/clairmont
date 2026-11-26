@@ -131,12 +131,12 @@ a:hover {
 
         <div class="input-group mb-3">
           <span class="input-group-text"><i class="bi bi-person-fill"></i></span>
-          <input type="text" name="txtUsername" class="form-control" placeholder="Username" required>
+          <input type="text" name="txtUsername" autocomplete="username" class="form-control" placeholder="Email" required>
         </div>
 
         <div class="input-group mb-4">
           <span class="input-group-text"><i class="bi bi-lock-fill"></i></span>
-          <input type="password" name="txtPassword" class="form-control" placeholder="Password" required>
+          <input type="password" name="txtPassword" autocomplete="current-password" class="form-control" placeholder="Password" required>
         </div>
 
         <button type="submit" name="btnLogin" class="btn btn-primary w-100">

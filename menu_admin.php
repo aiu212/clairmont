@@ -3,7 +3,7 @@ $menu = $_GET['menu'] ?? 'home';
 ?>
 
   <style>
-/* === MENU ADMIN CLAIRMONT STYLE === */
+/* === MENU SALES CLAIRMONT STYLE === */
 
 .sidebar-menu .nav-link {
   border-radius: 14px;
@@ -53,7 +53,7 @@ $menu = $_GET['menu'] ?? 'home';
 
   <!-- HOME -->
   <li class="nav-item">
-    <a href="../uas/dashboard_admin.php"
+    <a href="dashboard_admin.php"
        class="nav-link <?= ($menu == 'home') ? 'active' : '' ?>">
       <p>🏠 Home</p>
     </a>

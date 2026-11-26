@@ -3,9 +3,9 @@ session_start();
 include "../../koneksi2.php";
 
 /* ===============================
-   CEK LOGIN ADMIN
+   CEK LOGIN SALES
 ================================ */
-if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'admin') {
+if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'sales') {
     header("Location: ../../login.php"); // ⬅️ PATH DIPERBAIKI
     exit;
 }

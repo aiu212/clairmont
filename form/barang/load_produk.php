@@ -64,8 +64,8 @@ if (mysqli_num_rows($sql) == 0) {
 
       <?php } ?>
 
-      <!-- ADMIN -->
-      <?php if ($role == 'admin') { ?>
+      <!-- SALES -->
+      <?php if ($role == 'sales') { ?>
         <div class="mt-3">
           <a href="dashboard_admin.php?menu=produk_edit&id=<?= $p['id_produk']; ?>"
              class="btn btn-warning btn-sm me-1">Edit</a>

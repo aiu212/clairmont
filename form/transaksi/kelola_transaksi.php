@@ -1,7 +1,7 @@
 <?php
 include "koneksi2.php";
 
-if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'admin') {
+if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'sales') {
     header("Location: ../../login.php");
     exit;
 }
@@ -152,13 +152,25 @@ body {
             <?php } ?>
 
             <?php while ($t = mysqli_fetch_assoc($q)) {
-                $status = $t['status_transaksi'];
-                $badge = match ($status) {
-                    'selesai' => 'badge-selesai',
-                    'proses'  => 'badge-proses',
-                    'batal'   => 'badge-batal',
-                    default   => 'bg-secondary'
-                };
+            $status = $t['status_transaksi'];
+            $badge = 'bg-secondary';
+            switch ($status) {
+                case 'selesai':
+                    $badge = 'badge-selesai';
+                    break;
+
+                case 'proses':
+                    $badge = 'badge-proses';
+                    break;
+
+                case 'batal':
+                    $badge = 'badge-batal';
+                    break;
+
+                default:
+                    $badge = 'bg-secondary';
+                    break;
+            }
             ?>
                 <tr>
                     <td><?= htmlspecialchars($t['kode_transaksi']); ?></td>

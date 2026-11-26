@@ -43,7 +43,7 @@ if (mysqli_num_rows($sql) == 0) {
 <th>Jumlah</th>
 <th>Subtotal</th>
 
-<?php if ($_SESSION['role'] == 'admin') { ?>
+<?php if ($_SESSION['role'] == 'sales') { ?>
 <th class="text-center">Aksi</th>
 <?php } ?>
 </tr>
@@ -63,7 +63,7 @@ if (mysqli_num_rows($sql) == 0) {
 <td><?= $data['jumlah']; ?></td>
 <td>Rp <?= number_format($data['subtotal'],0,',','.'); ?></td>
 
-<?php if ($_SESSION['role'] == 'admin') { ?>
+<?php if ($_SESSION['role'] == 'sales') { ?>
 <td class="text-center">
   <div class="btn-group">
     <a href="dashboard_admin.php?menu=edit_transaksi&id=<?= $data['id_transaksi']; ?>"

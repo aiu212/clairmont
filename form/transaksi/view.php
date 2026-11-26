@@ -13,7 +13,7 @@ include "koneksi2.php";
   <div class="d-flex justify-content-between align-items-center p-3 border-bottom">
       <h4 class="mb-0">Data Transaksi</h4>
 
-      <?php if ($_SESSION['role'] == 'admin') { ?>
+      <?php if ($_SESSION['role'] == 'sales') { ?>
         <a href="dashboard_admin.php?menu=transaksi_form"
           class="btn btn-primary btn-sm px-4">
           <i class="bi bi-plus-circle"></i> Tambah Transaksi

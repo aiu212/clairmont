@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: 127.0.0.1
--- Generation Time: Jun 03, 2026 at 10:42 AM
+-- Generation Time: Nov 26, 2026 at 09:06 AM
 -- Server version: 10.4.32-MariaDB
 -- PHP Version: 8.2.12
 
@@ -49,7 +49,7 @@ INSERT INTO `tb_customer` (`id_customer`, `kode_customer`, `id_user`, `nama_cust
 (3, 'CST-003', 4, 'Lulu', 'lukiyatulparoh@gmail.com', '083948748218', 'Perum Mas', 'aktif', '2025-12-27 07:28:59'),
 (4, 'CST-004', 10, 'Melia', 'melia@gmail.com', '089787656734', 'Gelam Jaya', 'aktif', '2025-12-27 07:28:59'),
 (5, 'CST-005', 8, 'Putra', 'putra@gmail.com', '089847381982', 'Jakarta Utara', 'aktif', '2025-12-27 07:28:59'),
-(6, 'CST-006', 9, 'Roki', 'roki@gmail.com', '081873637484', 'Tangerang Selatan', 'aktif', '2025-12-27 07:28:59'),
+(6, 'CST-006', 9, 'Roki', 'roki@gmail.com', '', '', 'aktif', '2025-12-27 07:28:59'),
 (7, 'CST-007', 11, 'Salma', 'salma@gmail.com', '081283748294', 'Kab.Tangerang', 'aktif', '2025-12-27 07:32:31'),
 (8, 'CST-008', 5, 'Fatih', 'fatih@gmail.com', '083847384375', 'Bugel, Tangerang', 'aktif', '2025-12-27 07:32:31'),
 (11, 'CST-011', 15, 'Putri Syahratu', 'ratu@gmail.com', '', '', 'aktif', '2026-01-05 22:54:15');
@@ -110,7 +110,8 @@ INSERT INTO `tb_detail_transaksi` (`id_detail`, `id_transaksi`, `id_produk`, `ha
 (73, 57, 10, 31000, 1, 31000),
 (74, 57, 80, 14000, 1, 14000),
 (76, 59, 16, 148000, 1, 148000),
-(77, 59, 74, 17000, 1, 17000);
+(77, 59, 74, 17000, 1, 17000),
+(78, 60, 21, 146000, 1, 146000);
 
 -- --------------------------------------------------------
 
@@ -206,7 +207,7 @@ INSERT INTO `tb_produk` (`id_produk`, `kode_produk`, `id_kategori`, `nama_produk
 (17, 'PRD-017', 2, 'Cake Coklat Oreo', 146000, 'Cake coklat dengan topping oreo', 40, 'ccoklatoreo.jpeg', 'aktif', '2025-12-27 09:29:11', '2026-01-06 17:12:38'),
 (18, 'PRD-018', 2, 'Cake Marshmallow', 145000, 'Cake manis dengan marshmallow lembut', 10, 'cmarsmellow.jpeg', 'aktif', '2025-12-27 09:29:11', '2025-12-31 07:55:53'),
 (20, 'PRD-020', 2, 'Cake Coffee', 147000, 'Cake rasa coffee yang rich dan wangi', 10, 'coffee.jpeg', 'aktif', '2025-12-27 09:29:11', '2025-12-31 07:55:53'),
-(21, 'PRD-021', 2, 'Cake Strawberry Coklat', 146000, 'Cake strawberry dipadukan coklat', 10, 'cstrcok.jpeg', 'aktif', '2025-12-27 09:29:11', '2025-12-31 07:55:53'),
+(21, 'PRD-021', 2, 'Cake Strawberry Coklat', 146000, 'Cake strawberry dipadukan coklat', 9, 'cstrcok.jpeg', 'aktif', '2025-12-27 09:29:11', '2026-11-26 09:00:17'),
 (22, 'PRD-022', 2, 'Cake Vanila', 144000, 'Cake vanila lembut dan ringan', 10, 'cvanila.jpeg', 'aktif', '2025-12-27 09:29:11', '2025-12-31 07:55:53'),
 (23, 'PRD-023', 5, 'Cupcake Lotus', 18000, 'Cupcake lembut dengan topping lotus', 20, 'cplotus.jpeg', 'aktif', '2025-12-27 09:41:21', '2025-12-31 07:55:53'),
 (24, 'PRD-024', 5, 'Cupcake Caramel', 18000, 'Cupcake rasa caramel manis', 20, 'cpcaramel.jpeg', 'aktif', '2025-12-27 09:41:21', '2025-12-31 07:55:53'),
@@ -351,7 +352,72 @@ INSERT INTO `tb_transaksi` (`id_transaksi`, `kode_transaksi`, `id_customer`, `ta
 (55, 'TRX-0055', 4, '2026-01-06 04:24:59', 170000, 'Transfer', 'proses', 'bukti_1767695099_538.png'),
 (56, 'TRX-0056', 11, '2026-01-06 04:31:17', 550000, 'Transfer', 'selesai', 'bukti_1767695477_419.png'),
 (57, 'TRX-0057', 11, '2026-05-19 07:59:13', 61000, 'COD', 'selesai', ''),
-(59, 'TRX-0058', 11, '2026-05-19 20:08:14', 165000, 'COD', 'pending', '');
+(59, 'TRX-0058', 11, '2026-05-19 20:08:14', 165000, 'COD', 'pending', ''),
+(60, 'TRX-0060', 6, '2026-11-25 20:00:16', 146000, 'Transfer', 'pending', 'bukti_1795658416_450.png');
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `tb_users`
+--
+
+CREATE TABLE `tb_users` (
+  `id_user` int(11) NOT NULL,
+  `kode_user` varchar(20) DEFAULT NULL,
+  `nama` varchar(100) NOT NULL,
+  `email` varchar(100) NOT NULL,
+  `password` varchar(255) NOT NULL,
+  `role` enum('admin','owner','customer') NOT NULL,
+  `status` enum('aktif','nonaktif') DEFAULT 'aktif',
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Dumping data for table `tb_users`
+--
+
+INSERT INTO `tb_users` (`id_user`, `kode_user`, `nama`, `email`, `password`, `role`, `status`, `created_at`) VALUES
+(1, 'USR-001', 'Admin Dessert', 'admin@dessert.com', '$2y$10$QIki0cys7gfSrCFR4dzQVOnQZcq3rmaFVqo5Aibr7Q8C0.gLyEPga', 'admin', 'aktif', '2025-12-26 14:14:17'),
+(2, 'USR-002', 'Owner Dessert', 'owner@dessert.com', '$2y$10$2wdw9E2B.6/dkW0LipjbNeZo50aBVNYCnrFR/XWXG6jBkbh/wCXuC', 'owner', 'aktif', '2025-12-26 14:14:17'),
+(3, 'USR003', 'Ayu', 'ayu@gmail.com', 'ayu123', 'customer', 'aktif', '2025-12-26 14:14:17'),
+(4, 'USR004', 'lulu', 'lukiyatulparoh@gmail.com', '$2y$10$qD/LExv4k7aH5gGBveA6I.n9iFksPZOM.jf0hhQmGXYwYhmwzT5Xy', 'customer', 'aktif', '2025-12-26 14:35:43'),
+(5, 'USR005', 'Lula', 'lula@gmail.com', 'lula123', 'customer', 'aktif', '2025-12-27 07:01:48'),
+(6, 'USR006', 'lala', 'lala@gmail.com', '$2y$10$o9UfWUEZTkD.Q5DmE62jMenzdEdyjKuw0rf1qUtT8FrUvM9c1GE9q', 'customer', 'aktif', '2025-12-27 07:02:43'),
+(7, 'USR007', 'Dicky', 'dicky@gmail.com', 'dicky123', 'customer', 'aktif', '2025-12-27 07:06:24'),
+(8, 'USR008', 'Putra', 'putra@gmail.com', '$2y$10$0l81pB/tqImMzA3HH7PIKeUVs4.ISrnepDFgSKKt0WyRUN1qXxlXu', 'customer', 'aktif', '2025-12-27 07:10:22'),
+(9, 'USR009', 'Roki', 'roki@gmail.com', '$2y$10$s/MCNylh6MFBY4CjjZAe3uzxjbeStsQGQfUooJkO/LSwwY4DFqzVi', 'customer', 'aktif', '2025-12-27 07:10:45'),
+(10, 'USR010', 'Melia', 'melia@gmail.com', '$2y$10$/Iztv/llteoeYMOEdQH/munRFKiunOXOEAuMQV.GkjvtR.bhn5EPO', 'customer', 'aktif', '2025-12-27 07:11:09'),
+(11, 'USR011', 'Salma', 'salma@gmail.com', 'salma123', 'customer', 'aktif', '2025-12-27 07:20:50'),
+(13, 'USR012', 'Caca', 'caca@gmail.com', 'caca123', 'customer', 'aktif', '2026-01-02 09:14:03'),
+(14, 'USR014', 'Syifa Cahyani', 'syifa@gmail.com', '$2y$10$V/ofk5mr1z/uUCZn8bpoOu013l8w7ABPl8YGWMY4skcNXlwWKw9ry', 'customer', 'aktif', '2026-01-05 20:40:58'),
+(15, 'USR-015', 'Putri Syahratu', 'ratu@gmail.com', '$2y$10$9j2djXUkqaJZq4gtRLUzfuoTnFI1sf1BXzuZD.tjfG5B44LHHiLsK', 'customer', 'aktif', '2026-01-05 22:54:15');
+
+-- --------------------------------------------------------
+
+--
+-- Stand-in structure for view `v_laporan_transaksi_clairmont`
+-- (See below for the actual view)
+--
+CREATE TABLE `v_laporan_transaksi_clairmont` (
+`id_transaksi` int(11)
+,`tanggal` timestamp
+,`id_customer` int(11)
+,`nama_customer` varchar(100)
+,`id_produk` int(11)
+,`nama_produk` varchar(100)
+,`jumlah` int(11)
+,`harga` int(11)
+,`total` bigint(21)
+);
+
+-- --------------------------------------------------------
+
+--
+-- Structure for view `v_laporan_transaksi_clairmont`
+--
+DROP TABLE IF EXISTS `v_laporan_transaksi_clairmont`;
+
+CREATE ALGORITHM=UNDEFINED DEFINER=`root`@`localhost` SQL SECURITY DEFINER VIEW `v_laporan_transaksi_clairmont`  AS SELECT `t`.`id_transaksi` AS `id_transaksi`, `t`.`tanggal_transaksi` AS `tanggal`, `c`.`id_customer` AS `id_customer`, `c`.`nama_customer` AS `nama_customer`, `d`.`id_produk` AS `id_produk`, `p`.`nama_produk` AS `nama_produk`, `d`.`jumlah` AS `jumlah`, `p`.`harga` AS `harga`, `d`.`jumlah`* `p`.`harga` AS `total` FROM (((`tb_transaksi` `t` join `tb_customer` `c` on(`t`.`id_customer` = `c`.`id_customer`)) join `tb_detail_transaksi` `d` on(`t`.`id_transaksi` = `d`.`id_transaksi`)) join `tb_produk` `p` on(`d`.`id_produk` = `p`.`id_produk`)) ;
 
 --
 -- Indexes for dumped tables
@@ -413,6 +479,14 @@ ALTER TABLE `tb_transaksi`
   ADD KEY `id_customer` (`id_customer`);
 
 --
+-- Indexes for table `tb_users`
+--
+ALTER TABLE `tb_users`
+  ADD PRIMARY KEY (`id_user`),
+  ADD UNIQUE KEY `email` (`email`),
+  ADD UNIQUE KEY `kode_user` (`kode_user`);
+
+--
 -- AUTO_INCREMENT for dumped tables
 --
 
@@ -426,7 +500,7 @@ ALTER TABLE `tb_customer`
 -- AUTO_INCREMENT for table `tb_detail_transaksi`
 --
 ALTER TABLE `tb_detail_transaksi`
-  MODIFY `id_detail` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=78;
+  MODIFY `id_detail` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=79;
 
 --
 -- AUTO_INCREMENT for table `tb_kategori`
@@ -456,7 +530,13 @@ ALTER TABLE `tb_stok`
 -- AUTO_INCREMENT for table `tb_transaksi`
 --
 ALTER TABLE `tb_transaksi`
-  MODIFY `id_transaksi` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=60;
+  MODIFY `id_transaksi` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=61;
+
+--
+-- AUTO_INCREMENT for table `tb_users`
+--
+ALTER TABLE `tb_users`
+  MODIFY `id_user` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=16;
 
 --
 -- Constraints for dumped tables

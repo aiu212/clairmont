@@ -14,7 +14,7 @@ include "koneksi2.php";
           <div class="d-flex justify-content-between align-items-center p-3 border-bottom">
             <h4 class="mb-0">Data Customer</h4>
 
-            <?php if ($_SESSION['role'] == 'admin') { ?>
+            <?php if ($_SESSION['role'] == 'sales') { ?>
               <a href="dashboard_admin.php?menu=customer_form"
                  class="btn btn-primary btn-sm px-4">
                 <i class="bi bi-plus-circle"></i> Tambah Customer
@@ -35,7 +35,7 @@ include "koneksi2.php";
                   <th>No HP</th>
                   <th>Alamat</th>
 
-                  <?php if ($_SESSION['role'] == 'admin') { ?>
+                  <?php if ($_SESSION['role'] == 'sales') { ?>
                     <th class="text-center" style="width:160px;">Aksi</th>
                   <?php } ?>
                 </tr>
@@ -59,7 +59,7 @@ include "koneksi2.php";
                     <td><?= $data['no_hp']; ?></td>
                     <td><?= $data['alamat']; ?></td>
 
-                    <?php if ($_SESSION['role'] == 'admin') { ?>
+                    <?php if ($_SESSION['role'] == 'sales') { ?>
                       <td class="text-center">
                         <div class="btn-group">
                           <a href="dashboard_admin.php?menu=edit_customer&id_customer=<?= $data['id_customer']; ?>"
