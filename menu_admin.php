@@ -1,6 +1,9 @@
 
 <?php
+$base = '/clairmont-main/';
+
 $menu = $_GET['menu'] ?? 'home';
+$isPos = basename($_SERVER['PHP_SELF']) === 'pos.php';
 
 $laporanAktif = in_array(
     $menu,
@@ -14,49 +17,48 @@ $laporanAktif = in_array(
     data-accordion="false">
 
     <li class="nav-item">
-        <a href="dashboard_admin.php"
-           class="nav-link <?= $menu == 'home' ? 'active' : '' ?>">
+        <a href="<?= $base ?>dashboard_admin.php"
+           class="nav-link <?= ($menu == 'home' && !$isPos) ? 'active' : '' ?>">
             <p>🏠 Home</p>
         </a>
     </li>
 
     <li class="nav-item">
-        <a href="dashboard_admin.php?menu=produk"
+        <a href="<?= $base ?>dashboard_admin.php?menu=produk"
            class="nav-link <?= $menu == 'produk' ? 'active' : '' ?>">
             <p>🛍️ Produk</p>
         </a>
     </li>
 
     <li class="nav-item">
-        <a href="dashboard_admin.php?menu=customer"
+        <a href="<?= $base ?>dashboard_admin.php?menu=customer"
            class="nav-link <?= $menu == 'customer' ? 'active' : '' ?>">
             <p>📦 Data Customer</p>
         </a>
     </li>
 
     <li class="nav-item">
-        <a href="dashboard_admin.php?menu=transaksi"
+        <a href="<?= $base ?>dashboard_admin.php?menu=transaksi"
            class="nav-link <?= $menu == 'transaksi' ? 'active' : '' ?>">
             <p>🛒 Data Transaksi Harian</p>
         </a>
     </li>
 
     <li class="nav-item">
-        <a href="form/pos/pos.php"
-           class="nav-link">
+        <a href="<?= $base ?>form/pos/pos.php"
+           class="nav-link <?= $isPos ? 'active' : '' ?>">
             <p>🧁 POS / Kasir</p>
         </a>
     </li>
 
     <li class="nav-item">
-        <a href="dashboard_admin.php?menu=kelola_transaksi"
+        <a href="<?= $base ?>dashboard_admin.php?menu=kelola_transaksi"
            class="nav-link <?= $menu == 'kelola_transaksi' ? 'active' : '' ?>">
             <p>💸 Kelola Transaksi</p>
         </a>
     </li>
 
     <li class="nav-item <?= $laporanAktif ? 'menu-open' : '' ?>">
-
         <a href="#" class="nav-link">
             <p>
                 🧾 Laporan
@@ -67,39 +69,38 @@ $laporanAktif = in_array(
         <ul class="nav nav-treeview">
 
             <li class="nav-item">
-                <a href="dashboard_admin.php?menu=view_barang"
+                <a href="<?= $base ?>dashboard_admin.php?menu=view_barang"
                    class="nav-link <?= $menu == 'view_barang' ? 'active' : '' ?>">
                     <p>Laporan Produk</p>
                 </a>
             </li>
 
             <li class="nav-item">
-                <a href="dashboard_admin.php?menu=view_customer"
+                <a href="<?= $base ?>dashboard_admin.php?menu=view_customer"
                    class="nav-link <?= $menu == 'view_customer' ? 'active' : '' ?>">
                     <p>Laporan Customer</p>
                 </a>
             </li>
 
             <li class="nav-item">
-                <a href="dashboard_admin.php?menu=lap_transaksi"
+                <a href="<?= $base ?>dashboard_admin.php?menu=lap_transaksi"
                    class="nav-link <?= $menu == 'lap_transaksi' ? 'active' : '' ?>">
                     <p>Laporan Transaksi</p>
                 </a>
             </li>
 
         </ul>
-
     </li>
 
     <li class="nav-item">
-        <a href="dashboard_admin.php?menu=profil"
+        <a href="<?= $base ?>dashboard_admin.php?menu=profil"
            class="nav-link <?= $menu == 'profil' ? 'active' : '' ?>">
             <p>👤 Profil</p>
         </a>
     </li>
 
     <li class="nav-item">
-        <a href="logout.php" class="nav-link">
+        <a href="<?= $base ?>logout.php" class="nav-link">
             <p>🚪 Logout</p>
         </a>
     </li>
