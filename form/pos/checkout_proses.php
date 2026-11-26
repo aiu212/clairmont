@@ -3,10 +3,9 @@
 session_start();
 require_once __DIR__ . '/../../koneksi2.php';
 
-/* =========================================
-   1. VALIDASI LOGIN SALES
-========================================= */
-
+/* =====================================
+   VALIDASI LOGIN SALES
+===================================== */
 if (
     !isset($_SESSION['login']) ||
     $_SESSION['login'] !== true ||
@@ -19,24 +18,21 @@ if (
 
 mysqli_set_charset($koneksi, 'utf8mb4');
 
-/* =========================================
-   2. VALIDASI CSRF
-========================================= */
-
+/* =====================================
+   VALIDASI CSRF
+===================================== */
 $token = $_POST['csrf_token'] ?? '';
 
 if (
-    !is_string($token) ||
     empty($_SESSION['pos_csrf']) ||
     !hash_equals($_SESSION['pos_csrf'], $token)
 ) {
     die('Permintaan tidak valid. Silakan kembali ke POS.');
 }
 
-/* =========================================
-   3. VALIDASI KERANJANG
-========================================= */
-
+/* =====================================
+   VALIDASI KERANJANG
+===================================== */
 if (
     empty($_SESSION['pos_cart']) ||
     !is_array($_SESSION['pos_cart'])
@@ -44,54 +40,32 @@ if (
     die('Keranjang kosong. <a href="pos.php">Kembali ke POS</a>');
 }
 
-/* =========================================
-   4. VALIDASI METODE PEMBAYARAN
-========================================= */
-
+/* =====================================
+   VALIDASI METODE PEMBAYARAN
+===================================== */
 $metode = $_POST['metode_pembayaran'] ?? '';
 
-if (!in_array($metode, array('Tunai', 'QRIS', 'Transfer'), true)) {
+if (!in_array($metode, ['Tunai', 'QRIS', 'Transfer'], true)) {
     die('Metode pembayaran tidak valid.');
 }
 
 /*
-   QRIS masih simulasi.
-   Transaksi tidak boleh disimpan sebelum
-   Clairmont memiliki QRIS merchant resmi.
+QRIS belum memiliki merchant resmi.
+Transaksi QRIS nyata tidak boleh disimpan
+sebagai transaksi lunas.
 */
-
 if ($metode === 'QRIS') {
-    die('QRIS Clairmont masih dalam mode simulasi. Transaksi belum dapat diproses. <a href="pos.php">Kembali ke POS</a>');
+    die(
+        'Pembayaran QRIS Clairmont masih dalam mode simulasi. ' .
+        'Silakan gunakan Tunai atau Transfer Bank. ' .
+        '<a href="pos.php">Kembali ke POS</a>'
+    );
 }
 
-/* =========================================
-   5. VALIDASI PEMBAYARAN TUNAI
-========================================= */
-
-$uangDiterima = 0;
-$kembalian = 0;
-
-if ($metode === 'Tunai') {
-
-    $inputUang = $_POST['uang_diterima'] ?? '';
-
-    if (
-        !is_string($inputUang) ||
-        !preg_match('/^[0-9]+$/D', $inputUang)
-    ) {
-        die('Nominal uang diterima tidak valid.');
-    }
-
-    $uangDiterima = (int)$inputUang;
-
-    if ($uangDiterima <= 0) {
-        die('Nominal uang diterima harus lebih dari nol.');
-    }
-}
-
-/* =========================================
-   6. VALIDASI TRANSFER
-========================================= */
+/* =====================================
+   VALIDASI TRANSFER
+===================================== */
+$transferTerverifikasi = false;
 
 if ($metode === 'Transfer') {
 
@@ -99,24 +73,27 @@ if ($metode === 'Transfer') {
         !isset($_POST['pembayaran_terverifikasi']) ||
         $_POST['pembayaran_terverifikasi'] !== '1'
     ) {
-        die('Transfer belum dikonfirmasi. Pastikan dana sudah diterima. <a href="pos.php">Kembali ke POS</a>');
+        die(
+            'Konfirmasi penerimaan transfer wajib dilakukan. ' .
+            '<a href="pos.php">Kembali ke POS</a>'
+        );
     }
-}
 
-/* =========================================
-   7. IDENTITAS SALES
-========================================= */
+    $transferTerverifikasi = true;
+}
 
 $idSales = (int)$_SESSION['id_user'];
 
+/* =====================================
+   MULAI TRANSAKSI DATABASE
+===================================== */
 mysqli_begin_transaction($koneksi);
 
 try {
 
-    /* =====================================
-       8. PASTIKAN SALES AKTIF
-    ===================================== */
-
+    /* =================================
+       VALIDASI AKUN SALES
+    ================================= */
     $stmt = mysqli_prepare(
         $koneksi,
         "SELECT id_user
@@ -126,6 +103,10 @@ try {
          AND status = 'aktif'
          FOR UPDATE"
     );
+
+    if (!$stmt) {
+        throw new Exception('Gagal memeriksa akun Sales.');
+    }
 
     mysqli_stmt_bind_param($stmt, 'i', $idSales);
     mysqli_stmt_execute($stmt);
@@ -139,10 +120,9 @@ try {
         throw new Exception('Akun Sales tidak aktif atau tidak ditemukan.');
     }
 
-    /* =====================================
-       9. CARI CUSTOMER UMUM
-    ===================================== */
-
+    /* =================================
+       CARI / BUAT CUSTOMER UMUM
+    ================================= */
     $stmt = mysqli_prepare(
         $koneksi,
         "SELECT id_customer
@@ -153,6 +133,10 @@ try {
          LIMIT 1
          FOR UPDATE"
     );
+
+    if (!$stmt) {
+        throw new Exception('Gagal mencari data customer.');
+    }
 
     mysqli_stmt_execute($stmt);
 
@@ -174,23 +158,21 @@ try {
             VALUES (NULL, 'Pembeli Umum', 'aktif', NOW())"
         );
 
-        if (!mysqli_stmt_execute($stmt)) {
-            throw new Exception('Gagal membuat data Pembeli Umum.');
+        if (!$stmt || !mysqli_stmt_execute($stmt)) {
+            throw new Exception('Gagal membuat customer umum.');
         }
 
         $idCustomer = mysqli_insert_id($koneksi);
-
         mysqli_stmt_close($stmt);
     }
 
-    /* =====================================
-       10. VALIDASI PRODUK DAN STOK
-    ===================================== */
-
+    /* =================================
+       HITUNG TOTAL DAN VALIDASI PRODUK
+    ================================= */
     $cart = $_SESSION['pos_cart'];
 
     $total = 0;
-    $items = array();
+    $items = [];
 
     foreach ($cart as $idProduk => $qty) {
 
@@ -210,6 +192,10 @@ try {
              FOR UPDATE"
         );
 
+        if (!$stmt) {
+            throw new Exception('Gagal memeriksa produk.');
+        }
+
         mysqli_stmt_bind_param($stmt, 'i', $idProduk);
         mysqli_stmt_execute($stmt);
 
@@ -219,7 +205,7 @@ try {
         mysqli_stmt_close($stmt);
 
         if (!$product) {
-            throw new Exception('Produk tidak ditemukan atau sudah tidak aktif.');
+            throw new Exception('Produk tidak tersedia.');
         }
 
         if ((int)$product['stok'] < $qty) {
@@ -231,37 +217,45 @@ try {
         }
 
         $harga = (int)$product['harga'];
-
-        if ($harga <= 0) {
-            throw new Exception('Harga produk tidak valid.');
-        }
-
         $subtotal = $harga * $qty;
 
         $total += $subtotal;
 
-        $items[] = array(
+        $items[] = [
             'id_produk' => $idProduk,
             'nama' => $product['nama_produk'],
             'harga' => $harga,
             'jumlah' => $qty,
             'subtotal' => $subtotal
-        );
+        ];
     }
 
     if ($total <= 0) {
         throw new Exception('Total transaksi tidak valid.');
     }
 
-    /* =====================================
-       11. VALIDASI ULANG PEMBAYARAN
-    ===================================== */
+    /* =================================
+       HITUNG PEMBAYARAN TUNAI
+    ================================= */
+    $uangDiterima = null;
+    $kembalian = null;
 
     if ($metode === 'Tunai') {
 
+        $uangInput = $_POST['uang_diterima'] ?? '';
+
+        if (
+            $uangInput === '' ||
+            !ctype_digit((string)$uangInput)
+        ) {
+            throw new Exception('Nominal uang diterima tidak valid.');
+        }
+
+        $uangDiterima = (int)$uangInput;
+
         if ($uangDiterima < $total) {
             throw new Exception(
-                'Uang yang diterima kurang. Total belanja Rp ' .
+                'Uang pembayaran kurang. Total belanja: Rp ' .
                 number_format($total, 0, ',', '.')
             );
         }
@@ -269,16 +263,10 @@ try {
         $kembalian = $uangDiterima - $total;
     }
 
-    /*
-       Status selesai diberikan hanya setelah
-       pembayaran dikonfirmasi oleh Sales.
-    */
-
+    /* =================================
+       SIMPAN TRANSAKSI UTAMA
+    ================================= */
     $status = 'selesai';
-
-    /* =====================================
-       12. SIMPAN TRANSAKSI UTAMA
-    ===================================== */
 
     $stmt = mysqli_prepare(
         $koneksi,
@@ -295,6 +283,10 @@ try {
         )
         VALUES (NULL, ?, ?, NOW(), ?, ?, ?, NULL)"
     );
+
+    if (!$stmt) {
+        throw new Exception('Gagal menyiapkan transaksi utama.');
+    }
 
     mysqli_stmt_bind_param(
         $stmt,
@@ -314,16 +306,10 @@ try {
 
     mysqli_stmt_close($stmt);
 
-    /* =====================================
-       13. BUAT KODE TRANSAKSI
-    ===================================== */
-
-    $kode = 'TRX-' . str_pad(
-        $idTransaksi,
-        4,
-        '0',
-        STR_PAD_LEFT
-    );
+    /* =================================
+       BUAT KODE TRANSAKSI
+    ================================= */
+    $kode = 'TRX-' . str_pad($idTransaksi, 4, '0', STR_PAD_LEFT);
 
     $stmt = mysqli_prepare(
         $koneksi,
@@ -332,12 +318,11 @@ try {
          WHERE id_transaksi = ?"
     );
 
-    mysqli_stmt_bind_param(
-        $stmt,
-        'si',
-        $kode,
-        $idTransaksi
-    );
+    if (!$stmt) {
+        throw new Exception('Gagal menyiapkan kode transaksi.');
+    }
+
+    mysqli_stmt_bind_param($stmt, 'si', $kode, $idTransaksi);
 
     if (!mysqli_stmt_execute($stmt)) {
         throw new Exception('Gagal membuat kode transaksi.');
@@ -345,12 +330,17 @@ try {
 
     mysqli_stmt_close($stmt);
 
-    /* =====================================
-       14. SIMPAN DETAIL TRANSAKSI
-    ===================================== */
-
+    /* =================================
+       SIMPAN DETAIL DAN UPDATE STOK
+    ================================= */
     foreach ($items as $item) {
 
+        $idProduk = $item['id_produk'];
+        $harga = $item['harga'];
+        $jumlah = $item['jumlah'];
+        $subtotal = $item['subtotal'];
+
+        /* DETAIL TRANSAKSI */
         $stmt = mysqli_prepare(
             $koneksi,
             "INSERT INTO tb_detail_transaksi
@@ -358,14 +348,18 @@ try {
             VALUES (?, ?, ?, ?, ?)"
         );
 
+        if (!$stmt) {
+            throw new Exception('Gagal menyiapkan detail transaksi.');
+        }
+
         mysqli_stmt_bind_param(
             $stmt,
             'iiiii',
             $idTransaksi,
-            $item['id_produk'],
-            $item['harga'],
-            $item['jumlah'],
-            $item['subtotal']
+            $idProduk,
+            $harga,
+            $jumlah,
+            $subtotal
         );
 
         if (!mysqli_stmt_execute($stmt)) {
@@ -374,10 +368,7 @@ try {
 
         mysqli_stmt_close($stmt);
 
-        /* =================================
-           15. KURANGI STOK PRODUK
-        ================================= */
-
+        /* UPDATE STOK PRODUK */
         $stmt = mysqli_prepare(
             $koneksi,
             "UPDATE tb_produk
@@ -386,40 +377,32 @@ try {
              AND stok >= ?"
         );
 
+        if (!$stmt) {
+            throw new Exception('Gagal menyiapkan update stok.');
+        }
+
         mysqli_stmt_bind_param(
             $stmt,
             'iii',
-            $item['jumlah'],
-            $item['id_produk'],
-            $item['jumlah']
+            $jumlah,
+            $idProduk,
+            $jumlah
         );
 
-        if (!mysqli_stmt_execute($stmt)) {
-
+        if (
+            !mysqli_stmt_execute($stmt) ||
+            mysqli_stmt_affected_rows($stmt) !== 1
+        ) {
             mysqli_stmt_close($stmt);
 
             throw new Exception(
-                'Gagal memperbarui stok produk ' .
-                $item['nama']
-            );
-        }
-
-        if (mysqli_stmt_affected_rows($stmt) !== 1) {
-
-            mysqli_stmt_close($stmt);
-
-            throw new Exception(
-                'Stok produk ' . $item['nama'] .
-                ' gagal diperbarui.'
+                'Gagal memperbarui stok produk ' . $item['nama']
             );
         }
 
         mysqli_stmt_close($stmt);
 
-        /* =================================
-           16. CATAT RIWAYAT STOK
-        ================================= */
-
+        /* CATAT RIWAYAT STOK */
         $tipe = 'keluar';
 
         $keterangan =
@@ -433,11 +416,15 @@ try {
             VALUES (?, ?, ?, ?, NOW())"
         );
 
+        if (!$stmt) {
+            throw new Exception('Gagal menyiapkan riwayat stok.');
+        }
+
         mysqli_stmt_bind_param(
             $stmt,
             'iiss',
-            $item['id_produk'],
-            $item['jumlah'],
+            $idProduk,
+            $jumlah,
             $tipe,
             $keterangan
         );
@@ -449,107 +436,71 @@ try {
         mysqli_stmt_close($stmt);
     }
 
-    /* =====================================
-       17. SIMPAN TRANSAKSI
-    ===================================== */
+    /* =================================
+       SIMPAN SEMUA TRANSAKSI
+    ================================= */
+    if (!mysqli_commit($koneksi)) {
+        throw new Exception('Gagal menyelesaikan transaksi database.');
+    }
 
-    mysqli_commit($koneksi);
+    /* =================================
+       SIMPAN RINGKASAN UNTUK STRUK
+    ================================= */
+    $_SESSION['pos_cart'] = [];
 
-    /* =====================================
-       18. KOSONGKAN KERANJANG
-    ===================================== */
-
-    $_SESSION['pos_cart'] = array();
-
-    /* =====================================
-       19. SIMPAN INFORMASI PENJUALAN
-    ===================================== */
-
-    $_SESSION['pos_last_sale'] = array(
-
+    $_SESSION['pos_last_sale'] = [
         'kode' => $kode,
-
         'total' => $total,
-
         'metode' => $metode,
-
         'uang_diterima' => $uangDiterima,
-
         'kembalian' => $kembalian,
-
-        'tanggal' => date('Y-m-d H:i:s')
-
-    );
-
-    /* =====================================
-       20. ARAHKAN KE HALAMAN SUKSES
-    ===================================== */
+        'pembayaran_terverifikasi' => $transferTerverifikasi,
+        'tanggal' => date('Y-m-d H:i:s'),
+        'items' => $items
+    ];
 
     header('Location: sukses.php');
     exit;
 
-
-} catch (Exception $e) {
+} catch (Throwable $e) {
 
     mysqli_rollback($koneksi);
 
-    echo '
-    <!DOCTYPE html>
+    echo '<!DOCTYPE html>
     <html lang="id">
     <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1">
-        <title>Transaksi Gagal</title>
-
-        <style>
-            body {
-                font-family: Segoe UI, Arial, sans-serif;
-                background: #fff8fa;
-                padding: 35px;
-                color: #543d4c;
-            }
-
-            .card {
-                max-width: 650px;
-                margin: auto;
-                background: white;
-                border: 1px solid #f0dce3;
-                border-radius: 16px;
-                padding: 25px;
-            }
-
-            a {
-                display: inline-block;
-                background: #f3b6c2;
-                padding: 10px 18px;
-                border-radius: 9px;
-                color: #543d4c;
-                text-decoration: none;
-                font-weight: bold;
-            }
-        </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Transaksi Gagal</title>
     </head>
 
-    <body>
+    <body style="
+        font-family:Segoe UI,Arial;
+        background:#fff8fa;
+        padding:35px;
+        color:#543d4c;
+    ">
 
-        <div class="card">
+    <div style="
+        max-width:650px;
+        margin:auto;
+        background:white;
+        border:1px solid #f0dce3;
+        border-radius:16px;
+        padding:25px;
+    ">
 
-            <h2>Transaksi Belum Berhasil</h2>
+    <h2>Transaksi Belum Berhasil</h2>
 
-            <p>'
-            . htmlspecialchars(
-                $e->getMessage(),
-                ENT_QUOTES,
-                'UTF-8'
-            ) .
-            '</p>
+    <p>' . htmlspecialchars(
+        $e->getMessage(),
+        ENT_QUOTES,
+        'UTF-8'
+    ) . '</p>
 
-            <a href="pos.php">
-                Kembali ke POS
-            </a>
+    <a href="pos.php">Kembali ke POS</a>
 
-        </div>
-
+    </div>
     </body>
     </html>';
 
