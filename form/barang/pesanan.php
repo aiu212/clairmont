@@ -1,75 +1,20 @@
 <?php
-// ❌ JANGAN session_start()
-include "koneksi2.php";
-
-$id_user = $_SESSION['id_user'];
-
-$qCust = mysqli_query($koneksi, "SELECT id_customer FROM tb_customer WHERE id_user='$id_user'");
-$cust  = mysqli_fetch_assoc($qCust);
-
-$id_customer = $cust['id_customer'];
-
-
-$q = mysqli_query(
-    $koneksi,
-    "SELECT * 
-     FROM tb_transaksi
-     WHERE id_customer = '$id_customer'
-     ORDER BY tanggal_transaksi DESC"
-);
-
+if (session_status() === PHP_SESSION_NONE) session_start();
+if (($_SESSION['role'] ?? '') === 'customer' || empty($_SESSION['login'])) {
+    header('Location: ../../dashboard_customer.php?menu=produk');
+    exit;
+}
 ?>
-
-<div class="container mt-4">
-
-    <h4 class="fw-bold mb-3">📦 Pesanan Saya</h4>
-
-    <?php if (mysqli_num_rows($q) == 0) : ?>
-
-        <div class="alert alert-info">
-            Belum ada pesanan
-        </div>
-
-    <?php else : ?>
-
-        <table class="table table-bordered table-hover align-middle">
-            <thead class="table-light text-center">
-                <tr>
-                    <th>No</th>
-                    <th>Tanggal</th>
-                    <th>Total</th>
-                    <th>Status</th>
-                    <th>Detail</th>
-                </tr>
-            </thead>
-
-            <tbody>
-                <?php $no = 1; ?>
-                <?php while ($t = mysqli_fetch_assoc($q)) : ?>
-                    <tr class="text-center">
-                        <td><?= $no++; ?></td>
-                        <td><?= $t['tanggal_transaksi']; ?></td>
-                        <td>
-                            Rp <?= number_format($t['total_harga'], 0, ',', '.'); ?>
-                        </td>
-                        <td>
-                            <span class="badge bg-info">
-                            <?= $t['status_transaksi']; ?>
-                            </span>
-
-                        </td>
-                        <td>
-                            <a href="dashboard_customer.php?menu=pesanan_detail&id=<?= $t['id_transaksi']; ?>"
-                               class="btn btn-sm btn-primary">
-                                Lihat
-                            </a>
-                        </td>
-                    </tr>
-                <?php endwhile; ?>
-                
-            </tbody>
-        </table>
-
-    <?php endif; ?>
-
+<?php
+require_once __DIR__ . '/koneksi2.php';
+$id_user=(int)$_SESSION['id_user'];
+$stmt=mysqli_prepare($koneksi,"SELECT t.id_transaksi,t.kode_transaksi,t.tanggal_transaksi,t.total_harga,t.status_transaksi FROM tb_transaksi t INNER JOIN tb_customer c ON t.id_customer=c.id_customer WHERE c.id_user=? ORDER BY t.tanggal_transaksi DESC");
+mysqli_stmt_bind_param($stmt,'i',$id_user); mysqli_stmt_execute($stmt); $q=mysqli_stmt_get_result($stmt);
+?>
+<div class="cl-page-head"><span class="cl-eyebrow">Your orders</span><h1 class="cl-page-title">Pesanan <em>Saya</em></h1><p>Pantau pesanan dan lihat kembali detail transaksi kamu.</p></div>
+<div class="cl-panel table-responsive">
+<?php if(!$q || mysqli_num_rows($q)===0): ?><div class="cl-empty"><i class="bi bi-receipt fs-1"></i><h3 class="mt-3">Belum ada pesanan</h3><p>Pesanan yang kamu buat akan muncul di sini.</p><a class="cl-btn" href="dashboard_customer.php?menu=produk">Mulai Belanja</a></div>
+<?php else: ?><table class="cl-data-table"><thead><tr><th>No. Pesanan</th><th>Tanggal</th><th>Total</th><th>Status</th><th>Detail</th></tr></thead><tbody>
+<?php while($t=mysqli_fetch_assoc($q)): ?><tr><td class="fw-bold"><?= htmlspecialchars($t['kode_transaksi'] ?: ('TRX-'.$t['id_transaksi'])) ?></td><td><?= date('d M Y',strtotime($t['tanggal_transaksi'])) ?></td><td>Rp <?= number_format((float)$t['total_harga'],0,',','.') ?></td><td><span class="cl-status"><?= htmlspecialchars(ucfirst($t['status_transaksi'])) ?></span></td><td><a class="cl-link" href="dashboard_customer.php?menu=pesanan_detail&id=<?= (int)$t['id_transaksi'] ?>">Lihat Detail <i class="bi bi-arrow-up-right"></i></a></td></tr><?php endwhile; ?>
+</tbody></table><?php endif; ?>
 </div>

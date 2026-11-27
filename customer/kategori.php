@@ -34,9 +34,9 @@ while($p=mysqli_fetch_assoc($q)){
           Rp <?= number_format($p['harga']); ?>
         </p>
 
-        <a href="dashboard_customer.php?menu=cart_add&id=<?= $p['id_produk']; ?>"
-           class="btn btn-success btn-sm w-100">
-          Tambah ke Keranjang
+        <a href="dashboard_customer.php?menu=detail_produk&id=<?= (int)$p['id_produk']; ?>"
+           class="btn btn-outline-secondary btn-sm w-100">
+          Lihat Detail
         </a>
       </div>
     </div>

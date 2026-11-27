@@ -44,24 +44,10 @@ if (mysqli_num_rows($sql) == 0) {
         Stok: <strong><?= $p['stok']; ?></strong>
       </p>
 
-      <!-- CUSTOMER -->
+      <!-- CUSTOMER: hanya melihat detail produk -->
       <?php if ($role == 'customer') { ?>
-
-        <?php if ($p['stok'] > 0) { ?>
-          <form action="form/barang/cart_add.php" method="post" class="mt-2">
-            <input type="hidden" name="id_produk" value="<?= $p['id_produk']; ?>">
-
-            <button type="submit"
-                    class="btn btn-primary w-100 d-flex align-items-center justify-content-center gap-2 rounded-pill add-cart-btn">
-              🛒 <span>Tambah ke Keranjang</span>
-            </button>
-          </form>
-        <?php } else { ?>
-          <button class="btn btn-secondary w-100 rounded-pill" disabled>
-            Stok Habis
-          </button>
-        <?php } ?>
-
+        <a href="dashboard_customer.php?menu=detail_produk&id=<?= (int)$p['id_produk']; ?>"
+           class="btn btn-outline-secondary w-100 rounded-pill mt-2">Lihat Detail</a>
       <?php } ?>
 
       <!-- SALES -->

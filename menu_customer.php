@@ -54,18 +54,6 @@
   </li>
 
   <li class="nav-item">
-    <a href="dashboard_customer.php?menu=cart" class="nav-link <?= ($_GET['menu'] ?? '')=='cart' ? 'active' : '' ?>">
-      <span class="icon">🛒</span> Keranjang
-    </a>
-  </li>
-
-  <li class="nav-item">
-    <a href="dashboard_customer.php?menu=pesanan" class="nav-link <?= ($_GET['menu'] ?? '')=='pesanan' ? 'active' : '' ?>">
-      <span class="icon">📦</span> Pesanan Saya
-    </a>
-  </li>
-
-  <li class="nav-item">
     <a href="dashboard_customer.php?menu=profil" class="nav-link <?= ($_GET['menu'] ?? '')=='profil' ? 'active' : '' ?>">
       <span class="icon">👤</span> Profil
     </a>

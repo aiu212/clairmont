@@ -1,3 +1,10 @@
+<?php
+if (session_status() === PHP_SESSION_NONE) session_start();
+if (($_SESSION['role'] ?? '') === 'customer' || empty($_SESSION['login'])) {
+    header('Location: ../../dashboard_customer.php?menu=produk');
+    exit;
+}
+?>
 
 <?php
 include "koneksi2.php";

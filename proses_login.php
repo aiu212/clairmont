@@ -145,7 +145,12 @@ switch ($role) {
         break;
 
     case 'customer':
-        header('Location: dashboard_customer.php');
+        $next = $_POST['next'] ?? '';
+        if (strpos($next, 'dashboard_customer.php?menu=') === 0) {
+            header('Location: ' . $next);
+        } else {
+            header('Location: dashboard_customer.php?menu=member');
+        }
         break;
 
     default:
