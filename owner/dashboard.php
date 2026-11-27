@@ -327,8 +327,12 @@ if ($_SESSION['role'] != 'owner') {
         <div class="sidebar-wrapper">
           <nav class="mt-2">
           <?php
+<<<<<<< Updated upstream
             include "../menu.php";
           ?>        
+=======
+            include "menu_owner.php";          ?>        
+>>>>>>> Stashed changes
           </nav>
         </div>
         <!--end::Sidebar Wrapper-->
@@ -399,6 +403,14 @@ switch ($menu) {
         include "form/stok_barang/form_stok.php";
         break;
 
+<<<<<<< Updated upstream
+=======
+  // TARGET PENJUALAN SALES
+    case 'target_sales':
+        include "../form/owner/target_sales.php";
+        break;
+
+>>>>>>> Stashed changes
     default:
         include "../main.php";
         break;
