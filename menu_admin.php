@@ -1,6 +1,6 @@
 
 <?php
-$base = '/clairmont-main/';
+$base = '/clairmont/';
 
 $menu = $_GET['menu'] ?? 'home';
 $isPos = basename($_SERVER['PHP_SELF']) === 'pos.php';

@@ -136,6 +136,37 @@ if ($qGrafik) {
         .app-footer {
             background: linear-gradient(110deg, #f7d4dc, #dceaff) !important;
         }
+
+        /* ===== HALAMAN PRODUK ===== */
+.halaman-produk {
+    padding: 24px;
+}
+
+.halaman-produk img {
+    width: 100%;
+    max-width: 280px;
+    height: 210px;
+    object-fit: cover;
+    border-radius: 16px;
+}
+
+.halaman-produk input,
+.halaman-produk select {
+    padding: 8px 12px;
+    margin-left: 8px;
+    border: 1px solid #e5c3cd;
+    border-radius: 10px;
+    background: #fff;
+}
+
+.halaman-produk button {
+    padding: 8px 18px;
+    border: 0;
+    border-radius: 10px;
+    background: #f3b6c2;
+    color: #493747;
+    font-weight: 600;
+}
     </style>
 </head>
 
@@ -257,7 +288,7 @@ if ($qGrafik) {
     </aside>
 
     <!-- CONTENT -->
-    <main class="app-main">
+    <main class="app-main <?= $menu === 'produk' ? 'halaman-produk' : '' ?>">
 
         <?php
 
@@ -270,6 +301,7 @@ if ($qGrafik) {
             /* PRODUK */
             case 'produk':
                 include "form/barang/view.php";
+                include "form/barang/produk_style.php";
                 break;
 
             case 'barang_form':
@@ -393,7 +425,7 @@ if ($qGrafik) {
             case 'tambah_stok':
                 include "form/stok_barang/form_stok.php";
                 break;
-                
+            
             /* SALES */
             case 'target_sales':
                 include "form/sales/target_sales.php";
