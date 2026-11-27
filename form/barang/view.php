@@ -12,7 +12,7 @@ $produkResult = mysqli_query($koneksi,$sql);
 <div class="cl-page-head">
  <span class="cl-eyebrow">Clairmont Patisserie · Est. 1997</span>
  <h1 class="cl-page-title">Our Products &amp; <em>Artisanal Delights</em></h1>
- <p>Jelajahi koleksi cake, pastry, cookies, dan dessert pilihan Clairmont. Pembelian produk dilayani langsung di toko melalui kasir.</p>
+ <p>Jelajahi koleksi cake, pastry, cookies, dan dessert pilihan Clairmont.</p>
 </div>
 <div class="cl-filter-panel">
  <form method="get" action="dashboard_customer.php" class="row g-3 align-items-end">
