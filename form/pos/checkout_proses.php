@@ -121,49 +121,109 @@ try {
     }
 
     /* =================================
-       CARI / BUAT CUSTOMER UMUM
-    ================================= */
-    $stmt = mysqli_prepare(
-        $koneksi,
-        "SELECT id_customer
-         FROM tb_customer
-         WHERE nama_customer = 'Pembeli Umum'
-         AND id_user IS NULL
-         ORDER BY id_customer ASC
-         LIMIT 1
-         FOR UPDATE"
-    );
+        IDENTIFIKASI CUSTOMER MEMBER
+    ================================ */
 
-    if (!$stmt) {
-        throw new Exception('Gagal mencari data customer.');
-    }
+    $noHpMember = trim($_POST['no_hp_member'] ?? '');
 
-    mysqli_stmt_execute($stmt);
+    $noHpMember = preg_replace('/\D+/', '', $noHpMember);
 
-    $result = mysqli_stmt_get_result($stmt);
-    $customer = mysqli_fetch_assoc($result);
+    $memberDipakai = false;
 
-    mysqli_stmt_close($stmt);
+    if ($noHpMember !== '') {
 
-    if ($customer) {
-
-        $idCustomer = (int)$customer['id_customer'];
-
-    } else {
+        if (strlen($noHpMember) < 8 || strlen($noHpMember) > 20) {
+            throw new Exception('Nomor HP member tidak valid.');
+        }
 
         $stmt = mysqli_prepare(
             $koneksi,
-            "INSERT INTO tb_customer
-            (id_user, nama_customer, status, created_at)
-            VALUES (NULL, 'Pembeli Umum', 'aktif', NOW())"
+            "SELECT id_customer, nama_customer
+            FROM tb_customer
+            WHERE no_hp = ?
+            AND status = 'aktif'
+            LIMIT 2
+            FOR UPDATE"
         );
 
-        if (!$stmt || !mysqli_stmt_execute($stmt)) {
-            throw new Exception('Gagal membuat customer umum.');
+        if (!$stmt) {
+            throw new Exception('Gagal mencari member.');
         }
 
-        $idCustomer = mysqli_insert_id($koneksi);
+        mysqli_stmt_bind_param($stmt, 's', $noHpMember);
+        mysqli_stmt_execute($stmt);
+
+        $result = mysqli_stmt_get_result($stmt);
+
+        $customer = mysqli_fetch_assoc($result);
+        $customerKedua = mysqli_fetch_assoc($result);
+
         mysqli_stmt_close($stmt);
+
+        if (!$customer) {
+            throw new Exception(
+                'Nomor HP belum terdaftar sebagai member. ' .
+                'Kosongkan nomor HP jika customer bukan member.'
+            );
+        }
+
+        if ($customerKedua) {
+            throw new Exception(
+                'Nomor HP terdaftar pada lebih dari satu customer. ' .
+                'Periksa data customer terlebih dahulu.'
+            );
+        }
+
+        $idCustomer = (int)$customer['id_customer'];
+        $memberDipakai = true;
+
+    } else {
+
+        /* CUSTOMER UMUM */
+
+        $stmt = mysqli_prepare(
+            $koneksi,
+            "SELECT id_customer
+            FROM tb_customer
+            WHERE nama_customer = 'Pembeli Umum'
+            AND id_user IS NULL
+            ORDER BY id_customer ASC
+            LIMIT 1
+            FOR UPDATE"
+        );
+
+        if (!$stmt) {
+            throw new Exception('Gagal mencari customer umum.');
+        }
+
+        mysqli_stmt_execute($stmt);
+
+        $result = mysqli_stmt_get_result($stmt);
+        $customer = mysqli_fetch_assoc($result);
+
+        mysqli_stmt_close($stmt);
+
+        if ($customer) {
+
+            $idCustomer = (int)$customer['id_customer'];
+
+        } else {
+
+            $stmt = mysqli_prepare(
+                $koneksi,
+                "INSERT INTO tb_customer
+                (id_user, nama_customer, status, created_at)
+                VALUES (NULL, 'Pembeli Umum', 'aktif', NOW())"
+            );
+
+            if (!$stmt || !mysqli_stmt_execute($stmt)) {
+                throw new Exception('Gagal membuat customer umum.');
+            }
+
+            $idCustomer = mysqli_insert_id($koneksi);
+
+            mysqli_stmt_close($stmt);
+        }
     }
 
     /* =================================
@@ -435,6 +495,60 @@ try {
 
         mysqli_stmt_close($stmt);
     }
+
+    /* =================================
+   TAMBAHKAN POIN MEMBER
+================================ */
+
+$jumlahPoin = 0;
+
+if ($memberDipakai) {
+
+    // Setiap Rp10.000 mendapatkan 1 poin
+    $jumlahPoin = intdiv($total, 10000);
+
+    if ($jumlahPoin > 0) {
+
+        $tipePoin = 'masuk';
+
+        $keteranganPoin =
+            'Poin pembelian transaksi ' . $kode;
+
+        $stmt = mysqli_prepare(
+            $koneksi,
+            "INSERT INTO tb_poin_member
+            (
+                id_customer,
+                id_transaksi,
+                jumlah_poin,
+                tipe,
+                keterangan,
+                tanggal
+            )
+            VALUES (?, ?, ?, ?, ?, NOW())"
+        );
+
+        if (!$stmt) {
+            throw new Exception('Gagal menyiapkan poin member.');
+        }
+
+        mysqli_stmt_bind_param(
+            $stmt,
+            'iiiss',
+            $idCustomer,
+            $idTransaksi,
+            $jumlahPoin,
+            $tipePoin,
+            $keteranganPoin
+        );
+
+        if (!mysqli_stmt_execute($stmt)) {
+            throw new Exception('Gagal menyimpan poin member.');
+        }
+
+        mysqli_stmt_close($stmt);
+    }
+}
 
     /* =================================
        SIMPAN SEMUA TRANSAKSI

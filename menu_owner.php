@@ -57,12 +57,13 @@ $menu = $_GET['menu'] ?? 'home';
   id="navigation"
 >
 
+  
   <!-- HOME -->
   <li class="nav-item">
-    <a href="../uas/dashboard_owner.php"
-       class="nav-link <?= ($menu == 'home') ? 'active' : '' ?>">
-      <p>🏠 Home</p>
-    </a>
+      <a href="dashboard_owner.php"
+        class="nav-link <?= ($menu == 'home') ? 'active' : '' ?>">
+          <p>🏠 Home</p>
+      </a>
   </li>
 
   <!-- PRODUK -->
@@ -87,6 +88,14 @@ $menu = $_GET['menu'] ?? 'home';
        class="nav-link <?= ($menu == 'transaksi') ? 'active' : '' ?>">
       <p>🛒 Data Transaksi</p>
     </a>
+  </li>
+
+  <!-- TARGET PENJUALAN -->
+  <li class="nav-item">
+      <a href="dashboard_owner.php?menu=target_sales"
+        class="nav-link <?= $menu == 'target_sales' ? 'active' : '' ?>">
+          <p>🎯 Target Penjualan</p>
+      </a>
   </li>
 
   <!-- LAPORAN -->

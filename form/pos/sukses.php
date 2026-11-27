@@ -1,6 +1,6 @@
-
 <?php
 session_start();
+include "../../koneksi2.php";
 
 /* =====================================
    VALIDASI LOGIN SALES
@@ -59,7 +59,97 @@ $namaMetode = [
 $metodeTampil = $namaMetode[$metode] ?? $metode;
 
 $timestamp = strtotime($tanggal);
+/* =====================================
+   DATA CUSTOMER DAN MEMBER
+===================================== */
 
+$customer = null;
+$idCustomer = null;
+$poinTransaksi = 0;
+$totalPoin = 0;
+
+// Cari transaksi berdasarkan kode transaksi
+$stmt = mysqli_prepare($koneksi, "
+    SELECT
+        t.id_transaksi,
+        t.id_customer,
+        c.nama_customer,
+        c.no_hp
+    FROM tb_transaksi t
+    LEFT JOIN tb_customer c
+        ON t.id_customer = c.id_customer
+    WHERE t.kode_transaksi = ?
+    LIMIT 1
+");
+
+mysqli_stmt_bind_param($stmt, "s", $kode);
+mysqli_stmt_execute($stmt);
+
+$result = mysqli_stmt_get_result($stmt);
+$customer = mysqli_fetch_assoc($result);
+
+mysqli_stmt_close($stmt);
+
+if ($customer) {
+
+    $idCustomer = $customer['id_customer'];
+    $idTransaksi = $customer['id_transaksi'];
+
+    // Ambil poin dari transaksi ini
+    $stmtPoin = mysqli_prepare($koneksi, "
+        SELECT COALESCE(SUM(jumlah_poin), 0) AS total
+        FROM tb_poin_member
+        WHERE id_customer = ?
+        AND id_transaksi = ?
+        AND tipe = 'masuk'
+    ");
+
+    mysqli_stmt_bind_param(
+        $stmtPoin,
+        "ii",
+        $idCustomer,
+        $idTransaksi
+    );
+
+    mysqli_stmt_execute($stmtPoin);
+
+    $resultPoin = mysqli_stmt_get_result($stmtPoin);
+    $dataPoin = mysqli_fetch_assoc($resultPoin);
+
+    $poinTransaksi = (int)$dataPoin['total'];
+
+    mysqli_stmt_close($stmtPoin);
+
+    // Ambil total akumulasi poin member
+    $stmtTotal = mysqli_prepare($koneksi, "
+        SELECT COALESCE(
+            SUM(
+                CASE
+                    WHEN tipe = 'masuk' THEN jumlah_poin
+                    WHEN tipe = 'keluar' THEN -jumlah_poin
+                    ELSE 0
+                END
+            ), 0
+        ) AS total
+        FROM tb_poin_member
+        WHERE id_customer = ?
+    ");
+
+    mysqli_stmt_bind_param(
+        $stmtTotal,
+        "i",
+        $idCustomer
+    );
+
+    mysqli_stmt_execute($stmtTotal);
+
+    $resultTotal = mysqli_stmt_get_result($stmtTotal);
+    $dataTotal = mysqli_fetch_assoc($resultTotal);
+
+    $totalPoin = (int)$dataTotal['total'];
+
+    mysqli_stmt_close($stmtTotal);
+}
 $tanggalTampil = $timestamp
     ? date('d-m-Y H:i:s', $timestamp)
     : e($tanggal);
@@ -350,10 +440,23 @@ body {
         <strong><?= e($tanggalTampil) ?></strong>
     </div>
 
-    <div class="info-row">
-        <span>Customer</span>
-        <strong>Pembeli Umum</strong>
-    </div>
+   <div class="info-row">
+    <span>Customer</span>
+    <strong>
+        <?= $customer
+            ? e($customer['nama_customer'])
+            : 'Pembeli Umum' ?>
+    </strong>
+</div>
+
+<?php if ($customer && !empty($customer['no_hp'])) { ?>
+
+<div class="info-row">
+    <span>No. HP</span>
+    <strong><?= e($customer['no_hp']) ?></strong>
+</div>
+
+<?php } ?>
 
     <div class="info-row">
         <span>Metode Pembayaran</span>
@@ -361,6 +464,36 @@ body {
     </div>
 
     <div class="divider"></div>
+
+    <?php if ($customer) { ?>
+
+<div class="payment-box">
+
+    <h6 class="fw-bold mb-3">
+        ⭐ CLAIRMONT MEMBER POINTS
+    </h6>
+
+    <div class="payment-row">
+        <span>Poin Transaksi Ini</span>
+        <strong class="status-ok">
+            +<?= number_format($poinTransaksi) ?> Poin
+        </strong>
+    </div>
+
+    <div class="payment-row">
+        <span>Total Akumulasi Poin</span>
+        <strong>
+            <?= number_format($totalPoin) ?> Poin
+        </strong>
+    </div>
+
+    <small class="text-secondary">
+        Terima kasih telah menjadi member Clairmont Dessert!
+    </small>
+
+</div>
+
+<?php } ?>
 
     <!-- RINCIAN PEMBELIAN -->
     <h6 class="fw-bold mb-2">

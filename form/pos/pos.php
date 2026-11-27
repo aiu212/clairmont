@@ -959,20 +959,27 @@ body {
                                value="<?php echo pos_h($_SESSION['pos_csrf']); ?>">
 
 
-                        <!-- PEMBELI -->
+                        <!-- ===== MEMBER CUSTOMER ====== -->
 
-                        <div class="mb-3">
+                        <div class="payment-box mb-3">
 
                             <label class="form-label fw-semibold">
-                                Pembeli
+                                <i class="bi bi-person-check"></i>
+                                Member Clairmont
                             </label>
 
-                            <input class="form-control"
-                                   value="Pembeli Umum"
-                                   readonly>
+                            <input type="text"
+                                  class="form-control mb-2"
+                                  name="no_hp_member"
+                                  placeholder="Masukkan nomor HP member (opsional)"
+                                  maxlength="20"
+                                  inputmode="numeric"
+                                  pattern="[0-9]+"
+                                  title="Masukkan nomor HP menggunakan angka saja">
 
                             <small class="muted">
-                                Transaksi kasir dicatat sebagai Pembeli Umum.
+                                Punya member? Masukkan nomor HP untuk mendapatkan poin.
+                                Jika bukan member, kosongkan bagian ini.
                             </small>
 
                         </div>

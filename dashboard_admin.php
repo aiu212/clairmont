@@ -393,6 +393,11 @@ if ($qGrafik) {
             case 'tambah_stok':
                 include "form/stok_barang/form_stok.php";
                 break;
+                
+            /* SALES */
+            case 'target_sales':
+                include "form/sales/target_sales.php";
+                break;
 
             default:
                 include "main_admin.php";
