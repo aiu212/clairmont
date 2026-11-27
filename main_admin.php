@@ -1,670 +1,1209 @@
+
 <?php
 include "koneksi2.php";
 
-// total customer
-$qCustomer = mysqli_query($koneksi,
-  "SELECT COUNT(*) AS total FROM tb_customer"
-);
-$customer = mysqli_fetch_assoc($qCustomer);
+/* =====================================================
+   FUNGSI BANTU
+===================================================== */
 
-// total produk
-$qBarang = mysqli_query($koneksi,
-  "SELECT COUNT(*) AS total FROM tb_produk"
-);
-$barang = mysqli_fetch_assoc($qBarang);
+function dashboardEscape($value) {
+    return htmlspecialchars((string)$value, ENT_QUOTES, 'UTF-8');
+}
 
-// total transaksi
-$qTransaksi = mysqli_query($koneksi,
-  "SELECT COUNT(*) AS total FROM tb_transaksi"
-);
-$transaksi = mysqli_fetch_assoc($qTransaksi);
+function dashboardQuery($koneksi, $sql) {
+    $result = mysqli_query($koneksi, $sql);
 
-// total pendapatan
-$qPendapatan = mysqli_query($koneksi,
-  "SELECT SUM(total_harga) AS total FROM tb_transaksi"
-);
-$pendapatan = mysqli_fetch_assoc($qPendapatan);
+    if (!$result) {
+        error_log("Dashboard Query Error: " . mysqli_error($koneksi));
+        return false;
+    }
+
+    return $result;
+}
+
+function dashboardNumber($value) {
+    return number_format((float)$value, 0, ',', '.');
+}
+
+/* =====================================================
+   1. STATISTIK UTAMA
+===================================================== */
+
+// Total customer
+$qCustomer = dashboardQuery($koneksi, "
+    SELECT COUNT(*) AS total
+    FROM tb_customer
+");
+
+$customer = $qCustomer ? mysqli_fetch_assoc($qCustomer) : ['total' => 0];
+
+// Total produk aktif
+$qProduk = dashboardQuery($koneksi, "
+    SELECT COUNT(*) AS total
+    FROM tb_produk
+    WHERE status = 'aktif'
+");
+
+$barang = $qProduk ? mysqli_fetch_assoc($qProduk) : ['total' => 0];
+
+// Total seluruh transaksi (semua status)
+$qTransaksi = dashboardQuery($koneksi, "
+    SELECT COUNT(*) AS total
+    FROM tb_transaksi
+");
+
+$transaksi = $qTransaksi ? mysqli_fetch_assoc($qTransaksi) : ['total' => 0];
+
+// Total pendapatan hanya transaksi selesai
+$qPendapatan = dashboardQuery($koneksi, "
+    SELECT COALESCE(SUM(total_harga), 0) AS total
+    FROM tb_transaksi
+    WHERE status_transaksi = 'selesai'
+");
+
+$pendapatan = $qPendapatan ? mysqli_fetch_assoc($qPendapatan) : ['total' => 0];
+
+// Total transaksi selesai
+$qSelesai = dashboardQuery($koneksi, "
+    SELECT COUNT(*) AS total
+    FROM tb_transaksi
+    WHERE status_transaksi = 'selesai'
+");
+
+$transaksiSelesai = $qSelesai ? mysqli_fetch_assoc($qSelesai) : ['total' => 0];
+
+// Total transaksi pending
+$qPending = dashboardQuery($koneksi, "
+    SELECT COUNT(*) AS total
+    FROM tb_transaksi
+    WHERE status_transaksi = 'pending'
+");
+
+$transaksiPending = $qPending ? mysqli_fetch_assoc($qPending) : ['total' => 0];
+
+// Total transaksi batal
+$qBatal = dashboardQuery($koneksi, "
+    SELECT COUNT(*) AS total
+    FROM tb_transaksi
+    WHERE status_transaksi = 'batal'
+");
+
+$transaksiBatal = $qBatal ? mysqli_fetch_assoc($qBatal) : ['total' => 0];
 
 
-$qTotalStok = mysqli_query($koneksi,
-  "SELECT SUM(stok) AS total FROM tb_produk"
-);
-$totalStok = mysqli_fetch_assoc($qTotalStok)['total'] ?? 0;
+/* =====================================================
+   2. DATA STOK PRODUK
+===================================================== */
 
-$qMenipis = mysqli_query($koneksi,
-  "SELECT COUNT(*) AS total
-   FROM tb_produk
-   WHERE stok BETWEEN 1 AND 5"
-);
-$stokMenipis = mysqli_fetch_assoc($qMenipis)['total'];
+$qTotalStok = dashboardQuery($koneksi, "
+    SELECT COALESCE(SUM(stok), 0) AS total
+    FROM tb_produk
+    WHERE status = 'aktif'
+");
 
-$qHabis = mysqli_query($koneksi,
-  "SELECT COUNT(*) AS total
-   FROM tb_produk
-   WHERE stok = 0"
-);
-$stokHabis = mysqli_fetch_assoc($qHabis)['total'];
+$totalStok = $qTotalStok
+    ? mysqli_fetch_assoc($qTotalStok)['total']
+    : 0;
+
+$qMenipis = dashboardQuery($koneksi, "
+    SELECT COUNT(*) AS total
+    FROM tb_produk
+    WHERE status = 'aktif'
+    AND stok BETWEEN 1 AND 5
+");
+
+$stokMenipis = $qMenipis
+    ? mysqli_fetch_assoc($qMenipis)['total']
+    : 0;
+
+$qHabis = dashboardQuery($koneksi, "
+    SELECT COUNT(*) AS total
+    FROM tb_produk
+    WHERE status = 'aktif'
+    AND stok = 0
+");
+
+$stokHabis = $qHabis
+    ? mysqli_fetch_assoc($qHabis)['total']
+    : 0;
 
 
-// total barang
-$qBarang = mysqli_query($koneksi, "SELECT COUNT(*) AS total FROM tb_produk");
-$barang  = mysqli_fetch_assoc($qBarang);
+/* =====================================================
+   3. TOTAL PRODUK TERJUAL
+   HANYA TRANSAKSI SELESAI
+===================================================== */
 
-// total customer
-$qCust = mysqli_query($koneksi, "SELECT COUNT(*) AS total FROM tb_customer");
-$cust  = mysqli_fetch_assoc($qCust);
+$qQty = dashboardQuery($koneksi, "
+    SELECT COALESCE(SUM(d.jumlah), 0) AS total
+    FROM tb_detail_transaksi d
+    JOIN tb_transaksi t
+        ON d.id_transaksi = t.id_transaksi
+    WHERE t.status_transaksi = 'selesai'
+");
 
-// total transaksi
-$qTrans = mysqli_query($koneksi, "SELECT COUNT(*) AS total FROM tb_transaksi");
-$trans  = mysqli_fetch_assoc($qTrans);
-
-// total qty
-$qQty = mysqli_query($koneksi, "SELECT SUM(jumlah) AS total FROM tb_detail_transaksi");
-$qty  = mysqli_fetch_assoc($qQty);
+$qty = $qQty
+    ? mysqli_fetch_assoc($qQty)
+    : ['total' => 0];
 
 
-$topBarang = mysqli_query($koneksi, "
-  SELECT 
-    p.nama_produk,
-    SUM(d.jumlah) AS total_terjual
-  FROM tb_detail_transaksi d
-  JOIN tb_produk p ON d.id_produk = p.id_produk
-  GROUP BY p.id_produk, p.nama_produk
-  ORDER BY total_terjual DESC
-  LIMIT 5
+/* =====================================================
+   4. LIMA PRODUK PALING LAKU
+===================================================== */
+
+$topBarang = dashboardQuery($koneksi, "
+    SELECT
+        p.id_produk,
+        p.nama_produk,
+        SUM(d.jumlah) AS total_terjual
+    FROM tb_detail_transaksi d
+    JOIN tb_produk p
+        ON d.id_produk = p.id_produk
+    JOIN tb_transaksi t
+        ON d.id_transaksi = t.id_transaksi
+    WHERE t.status_transaksi = 'selesai'
+    GROUP BY p.id_produk, p.nama_produk
+    ORDER BY total_terjual DESC
+    LIMIT 5
 ");
 
 
-$barangSemua = mysqli_query($koneksi, "
-  SELECT 
-    id_produk,
-    nama_produk,
-    harga,
-    stok,
-    kode_produk,
-    gambar
-  FROM tb_produk
-  ORDER BY nama_produk
+/* =====================================================
+   5. DAFTAR SEMUA PRODUK
+===================================================== */
+
+$barangSemua = dashboardQuery($koneksi, "
+    SELECT
+        id_produk,
+        nama_produk,
+        harga,
+        stok,
+        kode_produk,
+        gambar
+    FROM tb_produk
+    WHERE status = 'aktif'
+    ORDER BY nama_produk ASC
 ");
 
 
+/* =====================================================
+   6. TRANSAKSI TERBARU
+===================================================== */
 
-$qlatest = mysqli_query($koneksi, "
-  SELECT 
-    t.id_transaksi,
-    t.tanggal_transaksi,
-    t.total_harga,
-    t.status_transaksi,
-    GROUP_CONCAT(p.nama_produk SEPARATOR ', ') AS produk
-  FROM tb_transaksi t
-  JOIN tb_detail_transaksi d ON t.id_transaksi = d.id_transaksi
-  JOIN tb_produk p ON d.id_produk = p.id_produk
-  GROUP BY t.id_transaksi
-  ORDER BY t.tanggal_transaksi DESC
-  LIMIT 5
+$qlatest = dashboardQuery($koneksi, "
+    SELECT
+        t.id_transaksi,
+        t.kode_transaksi,
+        t.tanggal_transaksi,
+        t.total_harga,
+        t.metode_pembayaran,
+        t.status_transaksi,
+        GROUP_CONCAT(
+            DISTINCT p.nama_produk
+            ORDER BY p.nama_produk
+            SEPARATOR ', '
+        ) AS produk
+    FROM tb_transaksi t
+    LEFT JOIN tb_detail_transaksi d
+        ON t.id_transaksi = d.id_transaksi
+    LEFT JOIN tb_produk p
+        ON d.id_produk = p.id_produk
+    GROUP BY
+        t.id_transaksi,
+        t.kode_transaksi,
+        t.tanggal_transaksi,
+        t.total_harga,
+        t.metode_pembayaran,
+        t.status_transaksi
+    ORDER BY t.tanggal_transaksi DESC
+    LIMIT 5
 ");
 
 
+/* =====================================================
+   7. DAFTAR CUSTOMER
+===================================================== */
 
-
-$customers = mysqli_query($koneksi, "
-  SELECT 
-    id_customer,
-    nama_customer,
-    alamat,
-    no_hp,
-    created_at
-  FROM tb_customer
-  ORDER BY created_at DESC
+$customers = dashboardQuery($koneksi, "
+    SELECT
+        id_customer,
+        nama_customer,
+        alamat,
+        no_hp,
+        created_at
+    FROM tb_customer
+    ORDER BY created_at DESC
 ");
 
 
+/* =====================================================
+   8. DATA GRAFIK PENJUALAN 12 BULAN TERAKHIR
+===================================================== */
+
+$chartLabels = [];
+$chartValues = [];
+$chartData = [];
+
+$qGrafik = dashboardQuery($koneksi, "
+    SELECT
+        DATE_FORMAT(tanggal_transaksi, '%Y-%m') AS bulan,
+        SUM(total_harga) AS total
+    FROM tb_transaksi
+    WHERE status_transaksi = 'selesai'
+    AND tanggal_transaksi >= DATE_FORMAT(
+        DATE_SUB(CURDATE(), INTERVAL 11 MONTH),
+        '%Y-%m-01'
+    )
+    AND tanggal_transaksi < DATE_FORMAT(
+        DATE_ADD(CURDATE(), INTERVAL 1 MONTH),
+        '%Y-%m-01'
+    )
+    GROUP BY DATE_FORMAT(tanggal_transaksi, '%Y-%m')
+    ORDER BY bulan ASC
+");
+
+if ($qGrafik) {
+    while ($g = mysqli_fetch_assoc($qGrafik)) {
+        $chartData[$g['bulan']] = (float)$g['total'];
+    }
+}
+
+for ($i = 11; $i >= 0; $i--) {
+
+    $bulan = date(
+        'Y-m',
+        strtotime("-$i months", strtotime(date('Y-m-01')))
+    );
+
+    $chartLabels[] = date(
+        'M Y',
+        strtotime($bulan . '-01')
+    );
+
+    $chartValues[] = isset($chartData[$bulan])
+        ? $chartData[$bulan]
+        : 0;
+}
+
+
+/* =====================================================
+   9. FORMAT RINGKASAN
+===================================================== */
+
+$totalCustomer = (int)$customer['total'];
+$totalProduk = (int)$barang['total'];
+$totalTransaksi = (int)$transaksi['total'];
+$totalPendapatan = (float)$pendapatan['total'];
 
 ?>
 
-<main class="app-main">
-        <!--begin::App Content Header-->
-        <div class="app-content-header">
-          <!--begin::Container-->
-          <div class="container-fluid">
-            <!--begin::Row-->
-            <div class="row">
-              <div class="col-sm-6">
+<!-- =====================================================
+     DASHBOARD CONTENT
+===================================================== -->
+
+<div class="app-content-header">
+    <div class="container-fluid">
+        <div class="row">
+            <div class="col-sm-6">
                 <h3 class="mb-0">Clairmont Dessert</h3>
-              </div>
-              <div class="col-sm-6">
+            </div>
+
+            <div class="col-sm-6">
                 <ol class="breadcrumb float-sm-end">
-                  <li class="breadcrumb-item"><a href="#">Beranda</a></li>
-                  <li class="breadcrumb-item active" aria-current="page">Clairmont</li>
+                    <li class="breadcrumb-item">
+                        <a href="#">Beranda</a>
+                    </li>
+                    <li class="breadcrumb-item active">
+                        Clairmont
+                    </li>
                 </ol>
-              </div>
             </div>
-            <!--end::Row-->
-          </div>
-          <!--end::Container-->
         </div>
-        <div class="app-content">
-          <!--begin::Container-->
-          <div class="container-fluid">
-           <div class="row">
+    </div>
+</div>
 
-        <!-- TOTAL CUSTOMER -->
-        <div class="col-12 col-sm-6 col-md-3">
-          <div class="info-box">
+
+<div class="app-content">
+<div class="container-fluid">
+
+
+<!-- =====================================================
+     STATISTIK UTAMA
+===================================================== -->
+
+<div class="row">
+
+    <div class="col-12 col-sm-6 col-md-3">
+        <div class="info-box">
             <span class="info-box-icon text-bg-primary shadow-sm">
-              <i class="bi bi-people-fill"></i>
+                <i class="bi bi-people-fill"></i>
             </span>
-            <div class="info-box-content">
-              <span class="info-box-text">Total Customer</span>
-              <span class="info-box-number">
-                <?= $customer['total']; ?>
-              </span>
-            </div>
-          </div>
-        </div>
 
-        <!-- TOTAL BARANG -->
-        <div class="col-12 col-sm-6 col-md-3">
-          <div class="info-box">
+            <div class="info-box-content">
+                <span class="info-box-text">Total Customer</span>
+                <span class="info-box-number">
+                    <?= dashboardNumber($totalCustomer); ?>
+                </span>
+            </div>
+        </div>
+    </div>
+
+
+    <div class="col-12 col-sm-6 col-md-3">
+        <div class="info-box">
             <span class="info-box-icon text-bg-success shadow-sm">
-              <i class="bi bi-box-seam"></i>
+                <i class="bi bi-box-seam"></i>
             </span>
-            <div class="info-box-content">
-              <span class="info-box-text">Total Produk</span>
-              <span class="info-box-number">
-                <?= $barang['total']; ?>
-              </span>
-            </div>
-          </div>
-        </div>
 
-        <!-- TOTAL TRANSAKSI -->
-        <div class="col-12 col-sm-6 col-md-3">
-          <div class="info-box">
+            <div class="info-box-content">
+                <span class="info-box-text">Total Produk</span>
+                <span class="info-box-number">
+                    <?= dashboardNumber($totalProduk); ?>
+                </span>
+            </div>
+        </div>
+    </div>
+
+
+    <div class="col-12 col-sm-6 col-md-3">
+        <div class="info-box">
             <span class="info-box-icon text-bg-warning shadow-sm">
-              <i class="bi bi-receipt"></i>
+                <i class="bi bi-receipt"></i>
             </span>
-            <div class="info-box-content">
-              <span class="info-box-text">Total Transaksi</span>
-              <span class="info-box-number">
-                <?= $transaksi['total']; ?>
-              </span>
-            </div>
-          </div>
-        </div>
 
-        <!-- TOTAL PENDAPATAN -->
-        <div class="col-12 col-sm-6 col-md-3">
-          <div class="info-box">
+            <div class="info-box-content">
+                <span class="info-box-text">Total Transaksi</span>
+                <span class="info-box-number">
+                    <?= dashboardNumber($totalTransaksi); ?>
+                </span>
+            </div>
+        </div>
+    </div>
+
+
+    <div class="col-12 col-sm-6 col-md-3">
+        <div class="info-box">
             <span class="info-box-icon text-bg-danger shadow-sm">
-              <i class="bi bi-cash-stack"></i>
+                <i class="bi bi-cash-stack"></i>
             </span>
+
             <div class="info-box-content">
-              <span class="info-box-text">Total Pendapatan</span>
-              <span class="info-box-number">
-                Rp <?= number_format($pendapatan['total'] ?? 0); ?>
-              </span>
+                <span class="info-box-text">Total Pendapatan</span>
+                <span class="info-box-number">
+                    Rp <?= dashboardNumber($totalPendapatan); ?>
+                </span>
             </div>
-          </div>
+        </div>
+    </div>
+
+</div>
+
+
+<!-- =====================================================
+     GRAFIK PENJUALAN DAN STATUS STOK
+===================================================== -->
+
+<div class="row">
+<div class="col-md-12">
+
+<div class="card mb-4">
+
+    <div class="card-header">
+        <h5 class="card-title">GRAFIK PENJUALAN</h5>
+
+        <div class="card-tools">
+            <button type="button"
+                    class="btn btn-tool"
+                    data-lte-toggle="card-collapse">
+                <i class="bi bi-dash-lg"></i>
+            </button>
+        </div>
+    </div>
+
+
+    <div class="card-body">
+
+        <div class="row">
+
+            <div class="col-md-8">
+
+                <p class="text-center">
+                    <strong>
+                        Penjualan 12 Bulan Terakhir
+                    </strong>
+                </p>
+
+                <div id="sales-chart" style="min-height:300px;"></div>
+
+            </div>
+
+
+            <div class="col-md-4">
+
+                <p class="text-center">
+                    <strong>Status Stok Produk</strong>
+                </p>
+
+
+                <div class="progress-group">
+                    Stok Tersedia
+
+                    <span class="float-end">
+                        <b><?= dashboardNumber($totalStok); ?></b>
+                    </span>
+
+                    <div class="progress progress-sm">
+                        <div class="progress-bar text-bg-success"
+                             style="width:100%">
+                        </div>
+                    </div>
+                </div>
+
+
+                <div class="progress-group">
+                    Produk Stok Menipis
+
+                    <span class="float-end">
+                        <b><?= dashboardNumber($stokMenipis); ?></b>
+                    </span>
+
+                    <div class="progress progress-sm">
+                        <div class="progress-bar text-bg-warning"
+                             style="width:100%">
+                        </div>
+                    </div>
+                </div>
+
+
+                <div class="progress-group">
+                    Produk Habis
+
+                    <span class="float-end">
+                        <b><?= dashboardNumber($stokHabis); ?></b>
+                    </span>
+
+                    <div class="progress progress-sm">
+                        <div class="progress-bar text-bg-danger"
+                             style="width:100%">
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
         </div>
 
-      </div>
-
-            <!-- /.row -->
-
-            <!--begin::Row-->
-            <div class="row">
-              <div class="col-md-12">
-                <div class="card mb-4">
-                  <div class="card-header">
-                    <h5 class="card-title">GRAFIK PENJUALAN</h5>
-
-                    <div class="card-tools">
-                      <button type="button" class="btn btn-tool" data-lte-toggle="card-collapse">
-                        <i data-lte-icon="expand" class="bi bi-plus-lg"></i>
-                        <i data-lte-icon="collapse" class="bi bi-dash-lg"></i>
-                      </button>
-                      <div class="btn-group">
-                        <button
-                          type="button"
-                          class="btn btn-tool dropdown-toggle"
-                          data-bs-toggle="dropdown"
-                        >
-                          <i class="bi bi-wrench"></i>
-                        </button>
-                        <div class="dropdown-menu dropdown-menu-end" role="menu">
-                          <a href="#" class="dropdown-item">Action</a>
-                          <a href="#" class="dropdown-item">Another action</a>
-                          <a href="#" class="dropdown-item"> Something else here </a>
-                          <a class="dropdown-divider"></a>
-                          <a href="#" class="dropdown-item">Separated link</a>
-                        </div>
-                      </div>
-                      <button type="button" class="btn btn-tool" data-lte-toggle="card-remove">
-                        <i class="bi bi-x-lg"></i>
-                      </button>
-                    </div>
-                  </div>
-                  <!-- /.card-header -->
-                  <div class="card-body">
-                    <!--begin::Row-->
-                    <div class="row">
-                      <div class="col-md-8">
-                        <p class="text-center">
-                          <strong>Sales: 1 Jan, 2023 - 30 Jul, 2023</strong>
-                        </p>
-
-                        <div id="sales-chart"></div>
-
-                      </div>
-                    <div class="col-md-4">
-                      <p class="text-center">
-                        <strong>Status Stok Produk</strong>
-                      </p>
-
-                      <div class="progress-group">
-                      Stok Tersedia
-                      <span class="float-end">
-                        <b><?= $totalStok ?></b>
-                      </span>
-                      <div class="progress progress-sm">
-                        <div class="progress-bar text-bg-success" style="width:100%"></div>
-                      </div>
-                    </div>
-
-                    <div class="progress-group">
-                      Produk Stok Menipis
-                      <span class="float-end">
-                        <b><?= $stokMenipis ?></b>
-                      </span>
-                      <div class="progress progress-sm">
-                        <div class="progress-bar text-bg-warning" style="width:100%"></div>
-                      </div>
-                    </div>
-
-                    <div class="progress-group">
-                      Produk Habis
-                      <span class="float-end">
-                        <b><?= $stokHabis ?></b>
-                      </span>
-                      <div class="progress progress-sm">
-                        <div class="progress-bar text-bg-danger" style="width:100%"></div>
-                      </div>
-                    </div>
+    </div>
 
 
-                    <!--end::Row-->
-                  </div>
-                  <!-- ./card-body -->
-                  <div class="card-footer">
-                    <!--begin::Row-->
-                    <div class="row">
-                      <div class="col-md-3 col-6">
-                        <div class="text-center border-end">
-                          <span class="text-success">
-                            <i class="bi bi-caret-up-fill"></i> 17%
-                          </span>
-                          <h5 class="fw-bold mb-0">
-                            <?= $customer['total']; ?>
-                          </h5>
-                          <span class="text-uppercase">TOTAL CUSTOMER</span>
-                        </div>
-                      </div>
+    <!-- RINGKASAN -->
+    <div class="card-footer">
 
-                      <!-- /.col -->
-                      <div class="col-md-3 col-6">
-                        <div class="text-center border-end">
-                          <span class="text-info"> <i class="bi bi-caret-left-fill"></i> 20% </span>
-                          <h5 class="fw-bold mb-0"><?= $barang['total']; ?></h5>
-                          <span class="text-uppercase">TOTAL PRODUK</span>
-                        </div>
-                      </div>
-                      <!-- /.col -->
-                      <div class="col-md-3 col-6">
-                        <div class="text-center border-end">
-                          <span class="text-success">
-                            <i class="bi bi-caret-up-fill"></i> 20%
-                          </span>
-                          <h5 class="fw-bold mb-0"><?= $transaksi['total']; ?></h5>
-                          <span class="text-uppercase">TOTAL TRANSAKSI</span>
-                        </div>
-                      </div>
-                      <!-- /.col -->
-                      <div class="col-md-3 col-6">
-                        <div class="text-center">
-                          <span class="text-danger">
-                            <i class="bi bi-caret-down-fill"></i> 18%
-                          </span>
-                          <h5 class="fw-bold mb-0">
-                            Rp <?= number_format($pendapatan['total'] ?? 0); ?>
-                          </h5>
-                          <span class="text-uppercase">TOTAL PENDAPATAN</span>
-                        </div>
-                      </div>
-                    </div>
-                    <!--end::Row-->
-                  </div>
-                  <!-- /.card-footer -->
+        <div class="row">
+
+            <div class="col-md-3 col-6">
+                <div class="text-center border-end">
+                    <span class="text-success">
+                        <i class="bi bi-people-fill"></i>
+                    </span>
+
+                    <h5 class="fw-bold mb-0">
+                        <?= dashboardNumber($totalCustomer); ?>
+                    </h5>
+
+                    <span class="text-uppercase">
+                        TOTAL CUSTOMER
+                    </span>
                 </div>
-                <!-- /.card -->
-              </div>
-              <!-- /.col -->
             </div>
-            <!--end::Row-->
 
-                  <div class="col-md-12">
-  <div class="card">
+
+            <div class="col-md-3 col-6">
+                <div class="text-center border-end">
+                    <span class="text-info">
+                        <i class="bi bi-box-seam"></i>
+                    </span>
+
+                    <h5 class="fw-bold mb-0">
+                        <?= dashboardNumber($totalProduk); ?>
+                    </h5>
+
+                    <span class="text-uppercase">
+                        TOTAL PRODUK
+                    </span>
+                </div>
+            </div>
+
+
+            <div class="col-md-3 col-6">
+                <div class="text-center border-end">
+                    <span class="text-success">
+                        <i class="bi bi-receipt"></i>
+                    </span>
+
+                    <h5 class="fw-bold mb-0">
+                        <?= dashboardNumber($totalTransaksi); ?>
+                    </h5>
+
+                    <span class="text-uppercase">
+                        TOTAL TRANSAKSI
+                    </span>
+                </div>
+            </div>
+
+
+            <div class="col-md-3 col-6">
+                <div class="text-center">
+                    <span class="text-danger">
+                        <i class="bi bi-cash-stack"></i>
+                    </span>
+
+                    <h5 class="fw-bold mb-0">
+                        Rp <?= dashboardNumber($totalPendapatan); ?>
+                    </h5>
+
+                    <span class="text-uppercase">
+                        TOTAL PENDAPATAN
+                    </span>
+                </div>
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+</div>
+</div>
+
+
+<!-- =====================================================
+     STATUS TRANSAKSI
+===================================================== -->
+
+<div class="row">
+
+    <div class="col-md-4 col-6">
+        <div class="info-box mb-3 text-bg-success">
+            <span class="info-box-icon">
+                <i class="bi bi-check-circle"></i>
+            </span>
+
+            <div class="info-box-content">
+                <span class="info-box-text">Transaksi Selesai</span>
+                <span class="info-box-number">
+                    <?= dashboardNumber($transaksiSelesai['total']); ?>
+                </span>
+            </div>
+        </div>
+    </div>
+
+
+    <div class="col-md-4 col-6">
+        <div class="info-box mb-3 text-bg-warning">
+            <span class="info-box-icon">
+                <i class="bi bi-clock-history"></i>
+            </span>
+
+            <div class="info-box-content">
+                <span class="info-box-text">Transaksi Pending</span>
+                <span class="info-box-number">
+                    <?= dashboardNumber($transaksiPending['total']); ?>
+                </span>
+            </div>
+        </div>
+    </div>
+
+
+    <div class="col-md-4 col-6">
+        <div class="info-box mb-3 text-bg-danger">
+            <span class="info-box-icon">
+                <i class="bi bi-x-circle"></i>
+            </span>
+
+            <div class="info-box-content">
+                <span class="info-box-text">Transaksi Batal</span>
+                <span class="info-box-number">
+                    <?= dashboardNumber($transaksiBatal['total']); ?>
+                </span>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+
+<!-- =====================================================
+     DAFTAR CUSTOMER
+===================================================== -->
+
+<div class="card mb-4">
+
     <div class="card-header">
-      <h3 class="card-title">Daftar Customer</h3>
+        <h3 class="card-title">Daftar Customer</h3>
 
-      <div class="card-tools">
-        <span class="badge text-bg-info">
-          <?= mysqli_num_rows($customers); ?> Customer
-        </span>
+        <div class="card-tools">
+            <span class="badge text-bg-info">
+                <?= $customers ? mysqli_num_rows($customers) : 0; ?>
+                Customer
+            </span>
 
-        <button type="button" class="btn btn-tool" data-lte-toggle="card-collapse">
-          <i data-lte-icon="expand" class="bi bi-plus-lg"></i>
-          <i data-lte-icon="collapse" class="bi bi-dash-lg"></i>
-        </button>
-        <button type="button" class="btn btn-tool" data-lte-toggle="card-remove">
-          <i class="bi bi-x-lg"></i>
-        </button>
-      </div>
+            <button type="button"
+                    class="btn btn-tool"
+                    data-lte-toggle="card-collapse">
+                <i class="bi bi-dash-lg"></i>
+            </button>
+        </div>
     </div>
 
-    <!-- CARD BODY -->
+
+    <div class="card-body">
+        <div class="row text-center"
+             style="max-height:400px;overflow-y:auto;">
+
+            <?php if ($customers && mysqli_num_rows($customers) > 0) { ?>
+
+                <?php while ($c = mysqli_fetch_assoc($customers)) { ?>
+
+                    <div class="col-6 col-md-3 p-2">
+
+                        <div class="border rounded p-3 h-100">
+
+                            <i class="bi bi-person-circle fs-1 text-primary"></i>
+
+                            <div class="fw-bold mt-2 text-truncate">
+                                <?= dashboardEscape($c['nama_customer']); ?>
+                            </div>
+
+                            <div class="text-muted small">
+                                ID: <?= (int)$c['id_customer']; ?>
+                            </div>
+
+                            <div class="text-muted small text-truncate">
+                                <?= dashboardEscape($c['no_hp'] ?: '-'); ?>
+                            </div>
+
+                            <div class="text-muted small text-truncate">
+                                <?= dashboardEscape($c['alamat'] ?: '-'); ?>
+                            </div>
+
+                            <div class="text-secondary small">
+                                <?php
+                                echo !empty($c['created_at'])
+                                    ? date('d M Y', strtotime($c['created_at']))
+                                    : '-';
+                                ?>
+                            </div>
+
+                        </div>
+
+                    </div>
+
+                <?php } ?>
+
+            <?php } else { ?>
+
+                <div class="col-12 text-center text-muted py-4">
+                    Belum ada data customer.
+                </div>
+
+            <?php } ?>
+
+        </div>
+    </div>
+
+</div>
+
+
+<!-- =====================================================
+     TRANSAKSI TERBARU
+===================================================== -->
+
+<div class="card mb-4">
+
+    <div class="card-header">
+        <h3 class="card-title">Transaksi Terbaru</h3>
+
+        <div class="card-tools">
+            <button type="button"
+                    class="btn btn-tool"
+                    data-lte-toggle="card-collapse">
+                <i class="bi bi-dash-lg"></i>
+            </button>
+        </div>
+    </div>
+
+
     <div class="card-body p-0">
-      <div class="row text-center m-1"
-           style="max-height:400px; overflow-y:auto;">
 
-        <?php while ($c = mysqli_fetch_assoc($customers)) { ?>
-          <div class="col-3 p-2">
-            <div class="border rounded p-2 h-100">
+        <div class="table-responsive">
 
-              <!-- ICON -->
-              <i class="bi bi-person-circle fs-1 text-primary"></i>
+            <table class="table table-bordered table-striped mb-0">
 
-              <!-- NAMA -->
-              <div class="fw-bold fs-7 text-truncate">
-                <?= $c['nama_customer']; ?>
-              </div>
+                <thead>
+                    <tr class="text-center">
+                        <th>No</th>
+                        <th>Kode Transaksi</th>
+                        <th>Tanggal</th>
+                        <th>Produk</th>
+                        <th>Metode</th>
+                        <th>Total</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
 
-              <!-- KODE CUSTOMER -->
-              <div class="fs-8 text-muted">
-                ID: <?= $c['id_customer']; ?>
-              </div>
 
-              <!-- NO HP -->
-              <div class="fs-8 text-muted text-truncate">
-                <?= $c['no_hp']; ?>
-              </div>
+                <tbody>
 
-              <!-- ALAMAT -->
-              <div class="fs-8 text-muted text-truncate">
-                <?= $c['alamat']; ?>
-              </div>
+                <?php if ($qlatest && mysqli_num_rows($qlatest) > 0) { ?>
 
-              <!-- TANGGAL DAFTAR -->
-              <div class="fs-8 text-secondary">
-                <?= date('d M Y', strtotime($c['created_at'])); ?>
-              </div>
+                    <?php $no = 1; ?>
 
-            </div>
-          </div>
-        <?php } ?>
+                    <?php while ($l = mysqli_fetch_assoc($qlatest)) { ?>
 
-      </div>
+                        <?php
+                        $status = strtolower($l['status_transaksi']);
+
+                        $badgeClass = 'bg-secondary';
+
+                        if ($status == 'selesai') {
+                            $badgeClass = 'bg-success';
+                        } elseif ($status == 'pending') {
+                            $badgeClass = 'bg-warning text-dark';
+                        } elseif ($status == 'proses') {
+                            $badgeClass = 'bg-info text-dark';
+                        } elseif ($status == 'batal') {
+                            $badgeClass = 'bg-danger';
+                        }
+                        ?>
+
+                        <tr>
+
+                            <td class="text-center">
+                                <?= $no++; ?>
+                            </td>
+
+                            <td>
+                                <?= dashboardEscape($l['kode_transaksi']); ?>
+                            </td>
+
+                            <td>
+                                <?= dashboardEscape(
+                                    date('d-m-Y H:i', strtotime($l['tanggal_transaksi']))
+                                ); ?>
+                            </td>
+
+                            <td>
+                                <?= dashboardEscape($l['produk'] ?: '-'); ?>
+                            </td>
+
+                            <td>
+                                <?= dashboardEscape($l['metode_pembayaran']); ?>
+                            </td>
+
+                            <td class="text-end">
+                                Rp <?= dashboardNumber($l['total_harga']); ?>
+                            </td>
+
+                            <td class="text-center">
+                                <span class="badge <?= $badgeClass; ?>">
+                                    <?= dashboardEscape(ucfirst($status)); ?>
+                                </span>
+                            </td>
+
+                        </tr>
+
+                    <?php } ?>
+
+                <?php } else { ?>
+
+                    <tr>
+                        <td colspan="7" class="text-center text-muted py-3">
+                            Belum ada transaksi.
+                        </td>
+                    </tr>
+
+                <?php } ?>
+
+                </tbody>
+
+            </table>
+
+        </div>
+
     </div>
-  </div>
+
+
+    <div class="card-footer clearfix">
+
+        <a href="dashboard_admin.php?menu=transaksi"
+           class="btn btn-sm btn-primary float-end">
+            Lihat Semua Transaksi
+        </a>
+
+    </div>
+
 </div>
 
-                <!--end::Row-->
 
-                <div class="card">
-  <div class="card-header">
-    <h3 class="card-title">Latest Transactions</h3>
+<!-- =====================================================
+     PRODUK TERLARIS DAN TOTAL PRODUK TERJUAL
+===================================================== -->
 
-    <div class="card-tools">
-      <button type="button" class="btn btn-tool" data-lte-toggle="card-collapse">
-        <i data-lte-icon="expand" class="bi bi-plus-lg"></i>
-        <i data-lte-icon="collapse" class="bi bi-dash-lg"></i>
-      </button>
-      <button type="button" class="btn btn-tool" data-lte-toggle="card-remove">
-        <i class="bi bi-x-lg"></i>
-      </button>
-    </div>
-  </div>
+<div class="row">
 
-  <!-- CARD BODY -->
-  <div class="card-body p-0">
-    <div class="table-responsive">
-      <table class="table table-bordered">
-    <tr class="text-center">
-      <th>No</th>
-      <th>Tanggal</th>
-      <th>Produk</th>
-      <th>Total</th>
-      <th>Status</th>
-    </tr>
-
-    <?php $no=1; while($l=mysqli_fetch_assoc($qlatest)){ ?>
-    <tr>
-      <td><?= $no++; ?></td>
-      <td><?= $l['tanggal_transaksi']; ?></td>
-      <td><?= $l['produk']; ?></td>
-      <td>Rp <?= number_format($l['total_harga']); ?></td>
-      <td>
-        <span class="badge bg-warning">
-          <?= $l['status_transaksi']; ?>
-        </span>
-      </td>
-    </tr>
-    <?php } ?>
-    </table>
-
-    </div>
-  </div>
-
-  <!-- CARD FOOTER -->
-  <div class="card-footer clearfix">
-    <a href="dashboard_admin.php?menu=transaksi_form" 
-       class="btn btn-sm btn-primary float-start">
-      Tambah Transaksi
-    </a>
-
-    <a href="dashboard_admin.php?menu=transaksi" 
-       class="btn btn-sm btn-secondary float-end">
-      Lihat Semua Transaksi
-    </a>
-  </div>
-</div>
-
-                <!-- /.card -->
-              </div>
-              <!-- /.col -->
-<div class="container-fluid mt-4">
-  <div class="row">
-
-    <!-- KOLOM KIRI (4) -->
     <div class="col-md-4">
 
-      <div class="info-box mb-3 text-bg-warning">
-        <span class="info-box-icon">
-          <i class="bi bi-box-seam"></i>
-        </span>
-        <div class="info-box-content">
-          <span class="info-box-text">Total Produk</span>
-          <span class="info-box-number"><?= $barang['total']; ?></span>
-        </div>
-      </div>
+        <div class="info-box mb-3 text-bg-warning">
+            <span class="info-box-icon">
+                <i class="bi bi-box-seam"></i>
+            </span>
 
-      <div class="info-box mb-3 text-bg-success">
-        <span class="info-box-icon">
-          <i class="bi bi-people-fill"></i>
-        </span>
-        <div class="info-box-content">
-          <span class="info-box-text">Total Customer</span>
-          <span class="info-box-number"><?= $cust['total']; ?></span>
+            <div class="info-box-content">
+                <span class="info-box-text">Total Produk</span>
+                <span class="info-box-number">
+                    <?= dashboardNumber($totalProduk); ?>
+                </span>
+            </div>
         </div>
-      </div>
 
-      <div class="info-box mb-3 text-bg-danger">
-        <span class="info-box-icon">
-          <i class="bi bi-receipt"></i>
-        </span>
-        <div class="info-box-content">
-          <span class="info-box-text">Total Transaksi</span>
-          <span class="info-box-number"><?= $trans['total']; ?></span>
-        </div>
-      </div>
 
-      <div class="info-box mb-3 text-bg-info">
-        <span class="info-box-icon">
-          <i class="bi bi-cart-check-fill"></i>
-        </span>
-        <div class="info-box-content">
-          <span class="info-box-text">Total Produk Terjual</span>
-          <span class="info-box-number"><?= $qty['total'] ?? 0; ?></span>
+        <div class="info-box mb-3 text-bg-success">
+            <span class="info-box-icon">
+                <i class="bi bi-people-fill"></i>
+            </span>
+
+            <div class="info-box-content">
+                <span class="info-box-text">Total Customer</span>
+                <span class="info-box-number">
+                    <?= dashboardNumber($totalCustomer); ?>
+                </span>
+            </div>
         </div>
-      </div>
+
+
+        <div class="info-box mb-3 text-bg-danger">
+            <span class="info-box-icon">
+                <i class="bi bi-receipt"></i>
+            </span>
+
+            <div class="info-box-content">
+                <span class="info-box-text">Total Transaksi</span>
+                <span class="info-box-number">
+                    <?= dashboardNumber($totalTransaksi); ?>
+                </span>
+            </div>
+        </div>
+
+
+        <div class="info-box mb-3 text-bg-info">
+            <span class="info-box-icon">
+                <i class="bi bi-cart-check-fill"></i>
+            </span>
+
+            <div class="info-box-content">
+                <span class="info-box-text">Total Produk Terjual</span>
+                <span class="info-box-number">
+                    <?= dashboardNumber($qty['total']); ?>
+                </span>
+            </div>
+        </div>
 
     </div>
 
-    <!-- KOLOM KANAN (8) -->
+
     <div class="col-md-8">
 
-      <div class="card mb-4">
-        <div class="card-header">
-          <h3 class="card-title">5 Produk Paling Laku</h3>
+        <div class="card mb-4">
 
-          <div class="card-tools">
-            <button type="button" class="btn btn-tool" data-lte-toggle="card-collapse">
-              <i data-lte-icon="expand" class="bi bi-plus-lg"></i>
-              <i data-lte-icon="collapse" class="bi bi-dash-lg"></i>
-            </button>
-            <button type="button" class="btn btn-tool" data-lte-toggle="card-remove">
-              <i class="bi bi-x-lg"></i>
-            </button>
-          </div>
-        </div>
+            <div class="card-header">
+                <h3 class="card-title">5 Produk Paling Laku</h3>
 
-        <div class="card-body p-0">
-          <table class="table table-striped mb-0">
-            <thead>
-              <tr>
-                <th>No</th>
-                <th>Nama Produk</th>
-                <th class="text-end">Total Terjual</th>
-              </tr>
-            </thead>
-            <tbody>
-              <?php $no=1; while ($b = mysqli_fetch_assoc($topBarang)) { ?>
-              <tr>
-                <td><?= $no++; ?></td>
-                <td><?= $b['nama_produk']; ?></td>
-                <td class="text-end">
-                  <span class="badge bg-success">
-                    <?= $b['total_terjual']; ?> unit
-                  </span>
-                </td>
-              </tr>
-              <?php } ?>
-            </tbody>
-          </table>
-        </div>
-
-        <div class="card-footer text-muted">
-          Menampilkan 5 barang dengan penjualan terbanyak
-        </div>
-      </div>
-
-    </div>
-
-  </div>
-</div>
-
-
-                <!-- /.card -->
-
-                <!-- PRODUCT LIST -->
-               <div class="card">
-  <div class="card-header">
-    <h3 class="card-title">Daftar Semua Produk</h3>
-
-    <div class="card-tools">
-      <button type="button" class="btn btn-tool" data-lte-toggle="card-collapse">
-        <i data-lte-icon="expand" class="bi bi-plus-lg"></i>
-        <i data-lte-icon="collapse" class="bi bi-dash-lg"></i>
-      </button>
-      <button type="button" class="btn btn-tool" data-lte-toggle="card-remove">
-        <i class="bi bi-x-lg"></i>
-      </button>
-    </div>
-  </div>
-
-  <div class="card-body p-0">
-    <!-- AREA SCROLL -->
-    <div class="px-2" style="max-height:400px; overflow-y:auto;">
-
-      <?php if (mysqli_num_rows($barangSemua) > 0) { ?>
-        <?php while ($b = mysqli_fetch_assoc($barangSemua)) { ?>
-
-          <?php
-          $imgPath = "uploads/" . $b['gambar'];
-          $img = (!empty($b['gambar']) && file_exists($imgPath))
-                ? $imgPath
-                : "uploads/default.png";
-          ?>
-
-          <div class="d-flex border-top py-2 px-1 align-items-center">
-            <div class="col-2 text-center">
-              <img src="<?= $img; ?>" class="img-size-50 rounded" />
-            </div>
-
-            <div class="col-10">
-              <a href="#" class="fw-bold">
-                <?= $b['nama_produk']; ?>
-                <span class="badge text-bg-primary float-end">
-                  Rp <?= number_format($b['harga'], 0, ',', '.'); ?>
-                </span>
-              </a>
-
-              <div class="text-truncate text-muted">
-                Stok: <?= $b['stok']; ?> | Kode: <?= $b['kode_produk']; ?>
-              </div>
-            </div>
-          </div>
-
-        <?php } ?>
-      <?php } else { ?>
-
-        <div class="text-center py-4 text-muted">
-          Data barang belum tersedia
-        </div>
-
-      <?php } ?>
-
-    </div>
-  </div>
-</div>
-
-
-                      <!-- /.item -->
-                    </div>
-                  </div>
-                  <!-- /.card-body -->
-                  <div class="card-footer text-center">
-                    <a href="dashboard_admin.php?menu=produk" class="uppercase"> View All Products </a>
-                  </div>
-                  <!-- /.card-footer -->
+                <div class="card-tools">
+                    <button type="button"
+                            class="btn btn-tool"
+                            data-lte-toggle="card-collapse">
+                        <i class="bi bi-dash-lg"></i>
+                    </button>
                 </div>
-                <!-- /.card -->
-              </div>
-              <!-- /.col -->
             </div>
-            <!--end::Row-->
-          </div>
-          <!--end::Container-->
+
+
+            <div class="card-body p-0">
+
+                <table class="table table-striped mb-0">
+
+                    <thead>
+                        <tr>
+                            <th>No</th>
+                            <th>Nama Produk</th>
+                            <th class="text-end">Total Terjual</th>
+                        </tr>
+                    </thead>
+
+
+                    <tbody>
+
+                    <?php if ($topBarang && mysqli_num_rows($topBarang) > 0) { ?>
+
+                        <?php $no = 1; ?>
+
+                        <?php while ($b = mysqli_fetch_assoc($topBarang)) { ?>
+
+                            <tr>
+
+                                <td><?= $no++; ?></td>
+
+                                <td>
+                                    <?= dashboardEscape($b['nama_produk']); ?>
+                                </td>
+
+                                <td class="text-end">
+                                    <span class="badge bg-success">
+                                        <?= dashboardNumber($b['total_terjual']); ?>
+                                        unit
+                                    </span>
+                                </td>
+
+                            </tr>
+
+                        <?php } ?>
+
+                    <?php } else { ?>
+
+                        <tr>
+                            <td colspan="3"
+                                class="text-center text-muted py-3">
+                                Belum ada penjualan selesai.
+                            </td>
+                        </tr>
+
+                    <?php } ?>
+
+                    </tbody>
+
+                </table>
+
+            </div>
+
+
+            <div class="card-footer text-muted">
+                Hanya menghitung produk dari transaksi selesai.
+            </div>
+
         </div>
-        <!--end::App Content-->
-      </main>
+
+    </div>
+
+</div>
+
+
+<!-- =====================================================
+     DAFTAR SEMUA PRODUK
+===================================================== -->
+
+<div class="card mb-4">
+
+    <div class="card-header">
+        <h3 class="card-title">Daftar Semua Produk</h3>
+
+        <div class="card-tools">
+            <button type="button"
+                    class="btn btn-tool"
+                    data-lte-toggle="card-collapse">
+                <i class="bi bi-dash-lg"></i>
+            </button>
+        </div>
+    </div>
+
+
+    <div class="card-body p-0">
+
+        <div class="px-2"
+             style="max-height:400px;overflow-y:auto;">
+
+            <?php if ($barangSemua && mysqli_num_rows($barangSemua) > 0) { ?>
+
+                <?php while ($b = mysqli_fetch_assoc($barangSemua)) { ?>
+
+                    <?php
+                    $namaGambar = basename((string)$b['gambar']);
+
+                    $imgPath = __DIR__ . '/uploads/' . $namaGambar;
+
+                    $img = (
+                        !empty($namaGambar) &&
+                        is_file($imgPath)
+                    )
+                        ? 'uploads/' . rawurlencode($namaGambar)
+                        : 'uploads/default.png';
+                    ?>
+
+                    <div class="d-flex border-top py-2 px-1 align-items-center">
+
+                        <div class="col-2 text-center">
+
+                            <img src="<?= dashboardEscape($img); ?>"
+                                 class="img-size-50 rounded"
+                                 alt="<?= dashboardEscape($b['nama_produk']); ?>"
+                                 style="width:55px;height:55px;object-fit:cover;">
+
+                        </div>
+
+
+                        <div class="col-10">
+
+                            <div class="fw-bold">
+                                <?= dashboardEscape($b['nama_produk']); ?>
+
+                                <span class="badge text-bg-primary float-end">
+                                    Rp <?= dashboardNumber($b['harga']); ?>
+                                </span>
+                            </div>
+
+                            <div class="text-muted small">
+                                Stok: <?= dashboardNumber($b['stok']); ?>
+                                |
+                                Kode: <?= dashboardEscape($b['kode_produk']); ?>
+                            </div>
+
+                        </div>
+
+                    </div>
+
+                <?php } ?>
+
+            <?php } else { ?>
+
+                <div class="text-center py-4 text-muted">
+                    Data produk belum tersedia.
+                </div>
+
+            <?php } ?>
+
+        </div>
+
+    </div>
+
+
+    <div class="card-footer text-center">
+
+        <a href="dashboard_admin.php?menu=produk"
+           class="uppercase">
+            Lihat Semua Produk
+        </a>
+
+    </div>
+
+</div>
+
+
+</div>
+</div>
+
+
+<!-- =====================================================
+     GRAFIK PENJUALAN DINAMIS
+===================================================== -->
+
+<script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
+<script>
+(function () {
+
+    const chartElement = document.querySelector('#sales-chart');
+
+    if (!chartElement) {
+        return;
+    }
+
+    const labels = <?= json_encode(
+        $chartLabels,
+        JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP
+    ); ?>;
+
+    const values = <?= json_encode(
+        $chartValues,
+        JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP
+    ); ?>;
+
+    if (typeof ApexCharts === 'undefined') {
+        chartElement.innerHTML =
+            '<div class="text-center text-muted py-5">' +
+            'Grafik belum dapat ditampilkan. Periksa pemuatan ApexCharts.' +
+            '</div>';
+        return;
+    }
+
+    if (chartElement.dataset.rendered === '1') {
+        return;
+    }
+
+    chartElement.dataset.rendered = '1';
+
+    const options = {
+
+        series: [{
+            name: 'Total Penjualan',
+            data: values
+        }],
+
+        chart: {
+            type: 'area',
+            height: 300,
+            toolbar: {
+                show: false
+            },
+            fontFamily: 'Segoe UI, Arial, sans-serif'
+        },
+
+        colors: ['#0d6efd'],
+
+        dataLabels: {
+            enabled: false
+        },
+
+        stroke: {
+            curve: 'smooth',
+            width: 4
+        },
+
+        fill: {
+            type: 'gradient',
+            gradient: {
+                shadeIntensity: 1,
+                opacityFrom: 0.35,
+                opacityTo: 0.05,
+                stops: [0, 90, 100]
+            }
+        },
+
+        xaxis: {
+            categories: labels
+        },
+
+        yaxis: {
+            labels: {
+                formatter: function (value) {
+                    return 'Rp ' + Math.round(value).toLocaleString('id-ID');
+                }
+            }
+        },
+
+        tooltip: {
+            y: {
+                formatter: function (value) {
+                    return 'Rp ' + Math.round(value).toLocaleString('id-ID');
+                }
+            }
+        },
+
+        noData: {
+            text: 'Belum ada data penjualan.'
+        }
+    };
+
+    const chart = new ApexCharts(chartElement, options);
+
+    chart.render();
+
+})();
+</script>

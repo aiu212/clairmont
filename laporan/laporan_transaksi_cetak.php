@@ -26,6 +26,7 @@ if ($tglAwal > $tglAkhir) {
 }
 
 $tanggalMulai = $tglAwal . ' 00:00:00';
+
 $tanggalSelesai = date(
     'Y-m-d H:i:s',
     strtotime($tglAkhir . ' +1 day')
@@ -48,6 +49,7 @@ function rupiah($angka) {
 }
 
 function isiCell($pdf, $lebar, $tinggi, $teks, $align = 'L') {
+
     $teks = teksPDF($teks);
 
     while (
@@ -123,8 +125,12 @@ mysqli_stmt_execute($stmt);
 
 $result = mysqli_stmt_get_result($stmt);
 
+if (!$result) {
+    die('Gagal mengambil data transaksi.');
+}
+
 /* =====================================
-   QUERY RINGKASAN
+   QUERY RINGKASAN LAPORAN
 ===================================== */
 
 $sqlRingkasan = "
@@ -153,6 +159,10 @@ $sqlRingkasan = "
 
 $stmtRingkasan = mysqli_prepare($koneksi, $sqlRingkasan);
 
+if (!$stmtRingkasan) {
+    die('Query ringkasan gagal: ' . mysqli_error($koneksi));
+}
+
 mysqli_stmt_bind_param(
     $stmtRingkasan,
     'ss',
@@ -163,6 +173,7 @@ mysqli_stmt_bind_param(
 mysqli_stmt_execute($stmtRingkasan);
 
 $hasilRingkasan = mysqli_stmt_get_result($stmtRingkasan);
+
 $ringkasan = mysqli_fetch_assoc($hasilRingkasan);
 
 /* =====================================
@@ -193,7 +204,51 @@ function headerTabel($pdf) {
     }
 
     $pdf->Ln();
+
     $pdf->SetFont('Arial', '', 8);
+}
+
+/* =====================================
+   HEADER UTAMA
+===================================== */
+
+function headerUtama($pdf, $tglAwal, $tglAkhir) {
+
+    $pdf->SetFont('Arial', 'B', 16);
+
+    $pdf->Cell(
+        0,
+        10,
+        teksPDF('LAPORAN TRANSAKSI PENJUALAN'),
+        0,
+        1,
+        'C'
+    );
+
+    $pdf->SetFont('Arial', '', 10);
+
+    $pdf->Cell(
+        0,
+        7,
+        teksPDF('Sistem Informasi Penjualan - Clairmont Dessert'),
+        0,
+        1,
+        'C'
+    );
+
+    $pdf->Cell(
+        0,
+        7,
+        'Periode: ' .
+        date('d-m-Y', strtotime($tglAwal)) .
+        ' s/d ' .
+        date('d-m-Y', strtotime($tglAkhir)),
+        0,
+        1,
+        'C'
+    );
+
+    $pdf->Ln(5);
 }
 
 /* =====================================
@@ -203,47 +258,11 @@ function headerTabel($pdf) {
 $pdf = new FPDF('L', 'mm', 'A4');
 
 $pdf->SetMargins(10, 10, 10);
-$pdf->SetAutoPageBreak(true, 15);
+$pdf->SetAutoPageBreak(true, 12);
 
 $pdf->AddPage();
 
-/* HEADER UTAMA */
-
-$pdf->SetFont('Arial', 'B', 16);
-
-$pdf->Cell(
-    0,
-    10,
-    teksPDF('LAPORAN TRANSAKSI PENJUALAN'),
-    0,
-    1,
-    'C'
-);
-
-$pdf->SetFont('Arial', '', 10);
-
-$pdf->Cell(
-    0,
-    7,
-    teksPDF('Sistem Informasi Penjualan - Clairmont Dessert'),
-    0,
-    1,
-    'C'
-);
-
-$pdf->Cell(
-    0,
-    7,
-    'Periode: ' .
-    date('d-m-Y', strtotime($tglAwal)) .
-    ' s/d ' .
-    date('d-m-Y', strtotime($tglAkhir)),
-    0,
-    1,
-    'C'
-);
-
-$pdf->Ln(5);
+headerUtama($pdf, $tglAwal, $tglAkhir);
 
 headerTabel($pdf);
 
@@ -256,7 +275,8 @@ $transaksiTerakhir = null;
 
 while ($row = mysqli_fetch_assoc($result)) {
 
-    if ($pdf->GetY() > 185) {
+    // Menghindari baris tabel terpotong.
+    if ($pdf->GetY() + 9 > 198) {
         $pdf->AddPage();
         headerTabel($pdf);
     }
@@ -286,9 +306,13 @@ while ($row = mysqli_fetch_assoc($result)) {
 
     $totalBayar = '';
 
-    // Total transaksi hanya ditampilkan satu kali.
+    // Total bayar ditampilkan satu kali
+    // pada setiap transaksi.
+
     if ($transaksiTerakhir != $idTransaksi) {
+
         $totalBayar = rupiah($row['total_harga']);
+
         $transaksiTerakhir = $idTransaksi;
     }
 
@@ -334,6 +358,7 @@ mysqli_stmt_close($stmt);
 ===================================== */
 
 if ($totalBaris == 0) {
+
     $pdf->SetFont('Arial', 'I', 10);
 
     $pdf->Cell(
@@ -350,60 +375,87 @@ if ($totalBaris == 0) {
    RINGKASAN LAPORAN
 ===================================== */
 
-if ($pdf->GetY() > 160) {
+// Menyediakan ruang untuk ringkasan
+// agar tidak terpotong ke halaman berikutnya.
+
+$ruangRingkasan = 37;
+$batasHalaman = 198;
+
+if ($pdf->GetY() + $ruangRingkasan > $batasHalaman) {
     $pdf->AddPage();
 }
 
-$pdf->Ln(7);
+$pdf->Ln(3);
+
+// Judul ringkasan
 
 $pdf->SetFont('Arial', 'B', 12);
-$pdf->Cell(0, 9, 'RINGKASAN LAPORAN', 0, 1);
+
+$pdf->Cell(
+    0,
+    7,
+    teksPDF('RINGKASAN LAPORAN'),
+    0,
+    1
+);
+
+// Jumlah transaksi
 
 $pdf->SetFont('Arial', '', 10);
 
-$pdf->Cell(70, 8, 'Jumlah Transaksi', 0, 0);
+$pdf->Cell(70, 6, 'Jumlah Transaksi', 0, 0);
+
 $pdf->Cell(
     60,
-    8,
+    6,
     ': ' . (int)$ringkasan['jumlah_transaksi'],
     0,
     1
 );
 
-$pdf->Cell(70, 8, 'Transaksi Selesai', 0, 0);
+// Transaksi selesai
+
+$pdf->Cell(70, 6, 'Transaksi Selesai', 0, 0);
+
 $pdf->Cell(
     60,
-    8,
+    6,
     ': ' . (int)$ringkasan['transaksi_selesai'],
     0,
     1
 );
 
+// Total pendapatan
+
 $pdf->SetFont('Arial', 'B', 11);
 
-$pdf->Cell(70, 9, 'TOTAL PENDAPATAN', 0, 0);
+$pdf->Cell(
+    70,
+    7,
+    'TOTAL PENDAPATAN',
+    0,
+    0
+);
 
 $pdf->Cell(
     60,
-    9,
+    7,
     ': ' . rupiah($ringkasan['total_pendapatan']),
     0,
     1
 );
 
-mysqli_stmt_close($stmtRingkasan);
-
 /* =====================================
    FOOTER
 ===================================== */
 
-$pdf->Ln(5);
+$pdf->Ln(2);
 
 $pdf->SetFont('Arial', 'I', 9);
 
 $pdf->Cell(
     0,
-    8,
+    6,
     teksPDF('Dicetak melalui Sistem Informasi Clairmont Dessert'),
     0,
     1,
@@ -411,10 +463,19 @@ $pdf->Cell(
 );
 
 /* =====================================
-   OUTPUT
+   TUTUP STATEMENT
 ===================================== */
 
-$pdf->Output('I', 'Laporan_Transaksi_Clairmont.pdf');
+mysqli_stmt_close($stmtRingkasan);
+
+/* =====================================
+   OUTPUT PDF
+===================================== */
+
+$pdf->Output(
+    'I',
+    'Laporan_Transaksi_Clairmont.pdf'
+);
 
 exit;
 ?>

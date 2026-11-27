@@ -1,18 +1,20 @@
+
 <?php
 session_start();
-include "koneksi2.php";
+require_once __DIR__ . '/koneksi2.php';
 
-
-
-
-// Redirect kalau belum login
-if ($_SESSION['role'] != 'customer') {
-    header("Location: ../login.php");
+if (
+    !isset($_SESSION['login']) ||
+    $_SESSION['login'] !== true ||
+    !isset($_SESSION['role']) ||
+    $_SESSION['role'] !== 'customer'
+) {
+    header('Location: login.php');
     exit;
 }
 
+mysqli_set_charset($koneksi, 'utf8mb4');
 
-// Anti cache paling keras
 header("Cache-Control: no-store, no-cache, must-revalidate, max-age=0");
 header("Pragma: no-cache");
 header("Expires: 0");

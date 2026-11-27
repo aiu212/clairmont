@@ -1,16 +1,30 @@
+
 <?php
 session_start();
-include "koneksi2.php";
+require_once __DIR__ . '/koneksi2.php';
 
-/* ======================
-   DATA GRAFIK PENJUALAN
-   ====================== */
+// Validasi login Owner
+if (
+    !isset($_SESSION['login']) ||
+    $_SESSION['login'] !== true ||
+    !isset($_SESSION['role']) ||
+    $_SESSION['role'] !== 'owner'
+) {
+    header('Location: login.php');
+    exit;
+}
+
+mysqli_set_charset($koneksi, 'utf8mb4');
+
+// Grafik penjualan
 $qGrafik = mysqli_query($koneksi, "
-    SELECT 
+    SELECT
         DATE_FORMAT(t.tanggal_transaksi, '%Y-%m') AS bulan,
         SUM(d.jumlah * d.harga) AS total
     FROM tb_transaksi t
-    JOIN tb_detail_transaksi d ON t.id_transaksi = d.id_transaksi
+    JOIN tb_detail_transaksi d
+        ON t.id_transaksi = d.id_transaksi
+    WHERE t.status_transaksi = 'selesai'
     GROUP BY DATE_FORMAT(t.tanggal_transaksi, '%Y-%m')
     ORDER BY bulan ASC
 ");
@@ -18,19 +32,13 @@ $qGrafik = mysqli_query($koneksi, "
 $bulan = [];
 $total = [];
 
-while ($row = mysqli_fetch_assoc($qGrafik)) {
-    $bulan[] = $row['bulan'];     // contoh: 2024-01
-    $total[] = (int)$row['total'];
+if ($qGrafik) {
+    while ($row = mysqli_fetch_assoc($qGrafik)) {
+        $bulan[] = $row['bulan'];
+        $total[] = (int)$row['total'];
+    }
 }
 
-// Redirect kalau belum login
-if ($_SESSION['role'] != 'owner') {
-    header("Location: ../login.php");
-    exit;
-}
-
-
-// Anti cache paling keras
 header("Cache-Control: no-store, no-cache, must-revalidate, max-age=0");
 header("Pragma: no-cache");
 header("Expires: 0");
