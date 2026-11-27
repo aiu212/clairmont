@@ -257,8 +257,83 @@ foreach ($_SESSION['pos_cart'] as $qty) {
 <title>POS Kasir | Clairmont Dessert</title>
 
 <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource/source-sans-3@5.0.12/index.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.13.1/font/bootstrap-icons.min.css">
+<link rel="stylesheet" href="../../dist/css/adminlte.css">
 <style>
+
+
+/* SIDEBAR POS */
+.sidebar-pos {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 250px;
+    height: 100vh;
+    background: #f7d9e1;
+    padding: 20px 15px;
+    overflow-y: auto;
+    z-index: 1050;
+}
+
+.sidebar-pos .sidebar-brand {
+    font-size: 19px;
+    font-weight: 800;
+    color: #553b4a;
+    padding: 10px 8px 30px;
+}
+
+.sidebar-pos .nav-link {
+    display: block;
+    color: #433744;
+    padding: 13px 15px;
+    margin-bottom: 7px;
+    border-radius: 12px;
+    text-decoration: none;
+}
+
+.sidebar-pos .nav-link:hover {
+    background: rgba(255,255,255,.55);
+}
+
+.sidebar-pos .nav-link.active {
+    background: linear-gradient(100deg, #f2b6ca, #dce7ff);
+    font-weight: 700;
+}
+
+.sidebar-pos .nav-treeview {
+    padding-left: 15px;
+}
+
+.sidebar-pos .nav-treeview .nav-link {
+    font-size: 14px;
+    padding: 10px;
+}
+
+/* KONTEN POS */
+.topbar {
+    margin-left: 250px;
+}
+
+.pos-main {
+    margin-left: 250px;
+}
+
+/* RESPONSIVE */
+@media (max-width: 767px) {
+    .sidebar-pos {
+        width: 200px;
+    }
+
+    .topbar {
+        margin-left: 200px;
+    }
+
+    .pos-main {
+        margin-left: 200px;
+    }
+}
+
 
 :root {
     --pink: #f3b6c2;
@@ -268,10 +343,39 @@ foreach ($_SESSION['pos_cart'] as $qty) {
     --soft: #fff8fa;
 }
 
+/* SAMAKAN TAMPILAN DENGAN DASHBOARD SALES */
+
+/* Background halaman */
 body {
-    background: #fff8fa;
-    color: var(--ink);
-    font-family: 'Segoe UI', Arial, sans-serif;
+    background: #f4f6f9 !important;
+    color: #343a40;
+    font-family: 'Source Sans 3', sans-serif;
+}
+
+/* Sidebar */
+.app-sidebar {
+    background: #f8d7df !important;
+}
+
+.sidebar-brand {
+    background: #f8d7df !important;
+    border-bottom: 1px solid rgba(0,0,0,.05);
+}
+
+/* Header */
+.app-header {
+    background: linear-gradient(110deg, #f7d4dc, #dceaff) !important;
+    border-bottom: 1px solid #efd0da;
+}
+
+/* Konten utama */
+.app-main {
+    background: #f4f6f9;
+}
+
+/* Judul halaman */
+.page-title {
+    color: #343a40;
 }
 
 .topbar {
@@ -427,14 +531,17 @@ body {
 
 </head>
 
-<body>
+
+<body class="layout-fixed sidebar-expand-lg bg-body-tertiary">
+<div class="app-wrapper">
+
 
 <!-- ===============================
      HEADER
 ================================ -->
 
 
-<nav class="navbar topbar px-3 px-lg-4 py-3">
+<nav class="app-header navbar navbar-expand px-3 px-lg-4 py-3">
 
     <a href="../../dashboard_admin.php"
        class="navbar-brand brand mb-0 text-decoration-none">
@@ -462,7 +569,25 @@ body {
 
 </nav>
 
-<main class="container-fluid px-3 px-lg-4 py-4">
+<aside class="app-sidebar" data-bs-theme="light">
+    <div class="sidebar-brand">
+        <a href="../../dashboard_admin.php" class="brand-link text-decoration-none">
+            <img src="../../dist/assets/img/logo.jpeg"
+                 alt="Clairmont"
+                 class="brand-image opacity-75 shadow">
+            <span class="brand-text fw-semibold">Clairmont Dessert</span>
+        </a>
+    </div>
+
+    <div class="sidebar-wrapper">
+        <nav class="mt-2">
+            <?php include __DIR__ . '/../../menu_admin.php'; ?>
+        </nav>
+    </div>
+</aside>
+
+<main class="app-main">
+    <div class="container-fluid px-3 px-lg-4 py-4">
 
     <!-- JUDUL HALAMAN -->
 
@@ -1077,15 +1202,16 @@ body {
 
         </aside>
 
-    </div>
-
+       </div>
 </main>
+</div>
 
 
 <!-- BOOTSTRAP -->
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 
+<script src="../../dist/js/adminlte.js"></script>
 
 <!-- ===============================
      JAVASCRIPT PEMBAYARAN
