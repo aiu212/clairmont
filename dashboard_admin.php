@@ -1,4 +1,3 @@
-
 <?php
 session_start();
 require_once __DIR__ . '/koneksi2.php';
@@ -423,36 +422,6 @@ if ($qGrafik) {
             }
         }
 
-        /* ===== HALAMAN PRODUK ===== */
-.halaman-produk {
-    padding: 24px;
-}
-
-.halaman-produk img {
-    width: 100%;
-    max-width: 280px;
-    height: 210px;
-    object-fit: cover;
-    border-radius: 16px;
-}
-
-.halaman-produk input,
-.halaman-produk select {
-    padding: 8px 12px;
-    margin-left: 8px;
-    border: 1px solid #e5c3cd;
-    border-radius: 10px;
-    background: #fff;
-}
-
-.halaman-produk button {
-    padding: 8px 18px;
-    border: 0;
-    border-radius: 10px;
-    background: #f3b6c2;
-    color: #493747;
-    font-weight: 600;
-}
     </style>
 </head>
 
@@ -638,15 +607,12 @@ if ($qGrafik) {
         </div>
     </aside>
 
-<<<<<<< Updated upstream
     <!-- CONTENT -->
-    <main class="app-main <?= $menu === 'produk' ? 'halaman-produk' : '' ?>">
-=======
     <!-- MAIN CONTENT -->
     <main class="app-main">
         <div class="app-content">
             <div class="container-fluid">
->>>>>>> Stashed changes
+
 
                 <?php
                 switch ($menu) {
@@ -656,20 +622,13 @@ if ($qGrafik) {
                         break;
 
                     case 'produk':
-                        include __DIR__ . '/form/barang/view.php';
+                        include __DIR__ . '/form/barang/view_sales.php';
                         break;
 
-<<<<<<< Updated upstream
-            /* PRODUK */
-            case 'produk':
-                include "form/barang/view.php";
-                include "form/barang/produk_style.php";
-                break;
-=======
                     case 'barang_form':
                         include __DIR__ . '/form/barang/form_barang.php';
                         break;
->>>>>>> Stashed changes
+
 
                     case 'load_produk':
                         include __DIR__ . '/form/barang/load_produk.php';
@@ -783,17 +742,7 @@ if ($qGrafik) {
                         include __DIR__ . '/form/sales/target_sales.php';
                         break;
 
-<<<<<<< Updated upstream
-            /* STOK */
-            case 'tambah_stok':
-                include "form/stok_barang/form_stok.php";
-                break;
-            
             /* SALES */
-            case 'target_sales':
-                include "form/sales/target_sales.php";
-                break;
-=======
                     case 'profil':
                         ?>
                         <div class="account-profile">
@@ -803,7 +752,6 @@ if ($qGrafik) {
                                     Informasi akun Sales Clairmont Dessert.
                                 </p>
                             </div>
->>>>>>> Stashed changes
 
                             <div class="profile-banner mb-4">
                                 <div class="d-flex align-items-center gap-3 flex-wrap">
