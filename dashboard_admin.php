@@ -742,7 +742,6 @@ if ($qGrafik) {
                         include __DIR__ . '/form/sales/target_sales.php';
                         break;
 
-            /* SALES */
                     case 'profil':
                         ?>
                         <div class="account-profile">
