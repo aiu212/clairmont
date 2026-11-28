@@ -1,4 +1,3 @@
-
 <?php
 // =============================================
 // FITUR ULASAN CUSTOMER - CLAIRMONT DESSERT
@@ -83,46 +82,44 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' &&
 
     } else {
 
-        $idTransaksi = (int)($_POST['id_transaksi'] ?? 0);
+        $idProduk = (int)($_POST['id_produk'] ?? 0);
         $rating = (int)($_POST['rating'] ?? 0);
         $komentar = trim($_POST['ulasan'] ?? '');
 
-        if ($idTransaksi <= 0 || $rating < 1 || $rating > 5) {
+        if ($idProduk <= 0 || $rating < 1 || $rating > 5) {
 
-            $pesanUlasan = 'Data transaksi atau rating tidak valid.';
+            $pesanUlasan = 'Data produk atau rating tidak valid.';
             $jenisPesan = 'danger';
 
-        } elseif (strlen($komentar) > 5000) {
+        } elseif ((function_exists('mb_strlen') ? mb_strlen($komentar, 'UTF-8') : strlen($komentar)) > 1000) {
 
-            $pesanUlasan = 'Ulasan maksimal 5000 karakter.';
+            $pesanUlasan = 'Ulasan maksimal 1000 karakter.';
             $jenisPesan = 'danger';
 
         } else {
 
-            // Pastikan transaksi milik customer
-            // dan sudah selesai.
+            // Pastikan produk pernah dibeli customer dari transaksi selesai.
 
             $cek = mysqli_prepare(
                 $koneksi,
-                "SELECT id_transaksi
-                 FROM tb_transaksi
-                 WHERE id_transaksi = ?
-                   AND id_customer = ?
-                   AND status_transaksi = 'selesai'
+                "SELECT 1
+                 FROM tb_transaksi t
+                 INNER JOIN tb_detail_transaksi d ON d.id_transaksi = t.id_transaksi
+                 WHERE t.id_customer = ?
+                   AND d.id_produk = ?
+                   AND t.status_transaksi = 'selesai'
                  LIMIT 1"
             );
 
-            mysqli_stmt_bind_param(
-                $cek,
-                'ii',
-                $idTransaksi,
-                $idCustomer
-            );
-
-            mysqli_stmt_execute($cek);
-            $transaksiValid = mysqli_stmt_get_result($cek);
-            $adaTransaksi = mysqli_fetch_assoc($transaksiValid);
-            mysqli_stmt_close($cek);
+            if (!$cek) {
+                $adaTransaksi = false;
+            } else {
+                mysqli_stmt_bind_param($cek, 'ii', $idCustomer, $idProduk);
+                $cekBerhasil = mysqli_stmt_execute($cek);
+                $transaksiValid = $cekBerhasil ? mysqli_stmt_get_result($cek) : false;
+                $adaTransaksi = $transaksiValid ? mysqli_fetch_assoc($transaksiValid) : false;
+                mysqli_stmt_close($cek);
+            }
 
             if (!$adaTransaksi) {
 
@@ -131,53 +128,33 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' &&
 
             } else {
 
-                // Pastikan transaksi belum pernah diulas.
-
-                $cekUlasan = mysqli_prepare(
+                // Skema database menyimpan satu ulasan per produk per customer.
+                $insert = mysqli_prepare(
                     $koneksi,
-                    "SELECT id_ulasan
-                     FROM tb_ulasan
-                     WHERE id_transaksi = ?
-                     LIMIT 1"
+                    "INSERT INTO tb_ulasan_produk (id_produk, id_customer, rating, komentar)
+                     VALUES (?, ?, ?, ?)
+                     ON DUPLICATE KEY UPDATE
+                        rating = VALUES(rating),
+                        komentar = VALUES(komentar),
+                        updated_at = CURRENT_TIMESTAMP"
                 );
 
-                mysqli_stmt_bind_param(
-                    $cekUlasan,
-                    'i',
-                    $idTransaksi
-                );
-
-                mysqli_stmt_execute($cekUlasan);
-                $resultUlasan = mysqli_stmt_get_result($cekUlasan);
-                $sudahUlasan = mysqli_fetch_assoc($resultUlasan);
-                mysqli_stmt_close($cekUlasan);
-
-                if ($sudahUlasan) {
-
-                    $pesanUlasan = 'Transaksi ini sudah pernah diberikan ulasan.';
-                    $jenisPesan = 'warning';
-
+                if (!$insert) {
+                    $pesanUlasan = 'Ulasan belum dapat disimpan. Periksa struktur tabel ulasan.';
+                    $jenisPesan = 'danger';
                 } else {
-
-                    $insert = mysqli_prepare(
-                        $koneksi,
-                        "INSERT INTO tb_ulasan
-                         (id_customer, id_transaksi, rating, ulasan)
-                         VALUES (?, ?, ?, ?)"
-                    );
-
                     mysqli_stmt_bind_param(
                         $insert,
                         'iiis',
+                        $idProduk,
                         $idCustomer,
-                        $idTransaksi,
                         $rating,
                         $komentar
                     );
 
                     if (mysqli_stmt_execute($insert)) {
 
-                        $pesanUlasan = 'Terima kasih! Ulasan Anda berhasil dikirim.';
+                        $pesanUlasan = 'Terima kasih! Ulasan produk berhasil disimpan.';
                         $jenisPesan = 'success';
 
                     } else {
@@ -195,40 +172,50 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' &&
 }
 
 // =============================================
-// AMBIL DAFTAR TRANSAKSI SELESAI
+// AMBIL DAFTAR PRODUK DARI TRANSAKSI SELESAI
 // =============================================
 
 $stmt = mysqli_prepare(
     $koneksi,
-    "SELECT
-        t.id_transaksi,
-        t.kode_transaksi,
-        t.tanggal_transaksi,
-        t.total_harga,
+    "SELECT DISTINCT
+        p.id_produk,
+        p.nama_produk,
+        p.gambar,
         u.id_ulasan,
         u.rating,
-        u.ulasan,
-        u.tanggal AS tanggal_ulasan
+        u.komentar,
+        u.created_at AS tanggal_ulasan
      FROM tb_transaksi t
-     LEFT JOIN tb_ulasan u
-        ON t.id_transaksi = u.id_transaksi
+     INNER JOIN tb_detail_transaksi d ON d.id_transaksi = t.id_transaksi
+     INNER JOIN tb_produk p ON p.id_produk = d.id_produk
+     LEFT JOIN tb_ulasan_produk u
+        ON u.id_produk = p.id_produk AND u.id_customer = t.id_customer
      WHERE t.id_customer = ?
        AND t.status_transaksi = 'selesai'
-     ORDER BY t.tanggal_transaksi DESC"
+     ORDER BY p.nama_produk"
 );
 
-mysqli_stmt_bind_param($stmt, 'i', $idCustomer);
-mysqli_stmt_execute($stmt);
-
-$resultTransaksi = mysqli_stmt_get_result($stmt);
-
 $transaksiList = [];
+$errorDaftarUlasan = false;
 
-while ($row = mysqli_fetch_assoc($resultTransaksi)) {
-    $transaksiList[] = $row;
+if ($stmt) {
+    mysqli_stmt_bind_param($stmt, 'i', $idCustomer);
+    if (mysqli_stmt_execute($stmt)) {
+        $resultTransaksi = mysqli_stmt_get_result($stmt);
+        if ($resultTransaksi) {
+            while ($row = mysqli_fetch_assoc($resultTransaksi)) {
+                $transaksiList[] = $row;
+            }
+        } else {
+            $errorDaftarUlasan = true;
+        }
+    } else {
+        $errorDaftarUlasan = true;
+    }
+    mysqli_stmt_close($stmt);
+} else {
+    $errorDaftarUlasan = true;
 }
-
-mysqli_stmt_close($stmt);
 
 // =============================================
 // HITUNG STATISTIK ULASAN
@@ -364,6 +351,12 @@ $rataRating = $totalUlasan > 0
         </div>
     <?php endif; ?>
 
+    <?php if ($errorDaftarUlasan): ?>
+        <div class="alert alert-danger">
+            Daftar ulasan gagal dimuat. Pastikan tabel tb_ulasan_produk sudah tersedia.
+        </div>
+    <?php endif; ?>
+
     <!-- STATISTIK -->
 
     <div class="row g-3 mb-4">
@@ -390,7 +383,7 @@ $rataRating = $totalUlasan > 0
 
     </div>
 
-    <!-- TRANSAKSI YANG BISA DIULAS -->
+    <!-- PRODUK YANG BISA DIULAS -->
 
     <h5 class="fw-bold mb-3">
         <i class="bi bi-pencil-square"></i>
@@ -412,23 +405,14 @@ $rataRating = $totalUlasan > 0
 
                 <div>
                     <h6 class="fw-bold mb-1">
-                        Transaksi <?= ulasan_h($item['kode_transaksi'] ?: $item['id_transaksi']) ?>
+                        <?= ulasan_h($item['nama_produk']) ?>
                     </h6>
-
-                    <small class="text-secondary">
-                        <?= date('d-m-Y H:i', strtotime($item['tanggal_transaksi'])) ?>
-                    </small>
                 </div>
 
                 <span class="badge bg-success align-self-start">
-                    Transaksi Selesai
+                    Pernah Dibeli
                 </span>
 
-            </div>
-
-            <div class="mt-3">
-                <strong>Total Pembelian:</strong>
-                Rp <?= number_format($item['total_harga'], 0, ',', '.') ?>
             </div>
 
             <hr>
@@ -440,8 +424,8 @@ $rataRating = $totalUlasan > 0
                        value="<?= ulasan_h($_SESSION['csrf_ulasan']) ?>">
 
                 <input type="hidden"
-                       name="id_transaksi"
-                       value="<?= (int)$item['id_transaksi'] ?>">
+                       name="id_produk"
+                       value="<?= (int)$item['id_produk'] ?>">
 
                 <label class="fw-bold">
                     Bagaimana pengalaman Anda?
@@ -453,14 +437,14 @@ $rataRating = $totalUlasan > 0
 
                         <input
                             type="radio"
-                            id="star<?= $i ?>_<?= (int)$item['id_transaksi'] ?>"
+                            id="star<?= $i ?>_<?= (int)$item['id_produk'] ?>"
                             name="rating"
                             value="<?= $i ?>"
                             required
                         >
 
                         <label
-                            for="star<?= $i ?>_<?= (int)$item['id_transaksi'] ?>"
+                            for="star<?= $i ?>_<?= (int)$item['id_produk'] ?>"
                             title="<?= $i ?> bintang">
                             ★
                         </label>
@@ -477,8 +461,8 @@ $rataRating = $totalUlasan > 0
                     name="ulasan"
                     class="form-control mb-3"
                     rows="3"
-                    maxlength="5000"
-                    placeholder="Ceritakan pengalaman Anda membeli produk Clairmont Dessert..."
+                    maxlength="1000"
+                    placeholder="Ceritakan pengalaman Anda dengan produk ini..."
                 ></textarea>
 
                 <button
@@ -488,7 +472,7 @@ $rataRating = $totalUlasan > 0
                     class="ulasan-button">
 
                     <i class="bi bi-send"></i>
-                    Kirim Ulasan
+                    Kirim Ulasan Produk
 
                 </button>
 
@@ -504,11 +488,11 @@ $rataRating = $totalUlasan > 0
             <i class="bi bi-chat-square-heart fs-1"></i>
 
             <h6 class="mt-3 fw-bold">
-                Belum Ada Transaksi yang Perlu Diulas
+            Belum Ada Produk yang Perlu Diulas
             </h6>
 
             <p class="mb-0">
-                Transaksi yang sudah selesai dan belum diulas
+                Produk dari transaksi yang sudah selesai dan belum diulas
                 akan muncul di sini.
             </p>
         </div>
@@ -537,7 +521,7 @@ $rataRating = $totalUlasan > 0
 
                 <div>
                     <h6 class="fw-bold">
-                        Transaksi <?= ulasan_h($item['kode_transaksi'] ?: $item['id_transaksi']) ?>
+                        <?= ulasan_h($item['nama_produk']) ?>
                     </h6>
 
                     <small class="text-secondary">
@@ -559,7 +543,7 @@ $rataRating = $totalUlasan > 0
             </div>
 
             <div class="ulasan-history mt-2">
-                <?= nl2br(ulasan_h($item['ulasan'] ?: 'Tidak ada komentar.')) ?>
+                <?= nl2br(ulasan_h($item['komentar'] ?: 'Tidak ada komentar.')) ?>
             </div>
 
         </div>
