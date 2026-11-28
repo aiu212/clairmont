@@ -118,6 +118,14 @@ $laporanAktif = in_array(
         </ul>
     </li>
 
+    <!-- ULASAN PEMBELI -->
+    <li class="nav-item">
+        <a href="dashboard_owner.php?menu=ulasan"
+        class="nav-link <?= ($menu == 'ulasan') ? 'active' : '' ?>">
+            <p>⭐ Kelola Ulasan</p>
+        </a>
+    </li>
+
     <li class="nav-item">
         <a href="<?= $base ?>dashboard_owner.php?menu=profil"
            class="nav-link <?= $menu == 'profil' ? 'active' : '' ?>">

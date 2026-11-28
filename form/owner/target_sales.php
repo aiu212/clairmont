@@ -1,8 +1,9 @@
-
 <?php
-// =============================================
+// =====================================================
 // TARGET PENJUALAN - OWNER CLAIRMONT DESSERT
-// =============================================
+// File: form/owner/target_sales.php
+// PHP 7.3
+// =====================================================
 
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
@@ -14,7 +15,7 @@ if (!isset($koneksi)) {
 
 mysqli_set_charset($koneksi, 'utf8mb4');
 
-// Validasi role
+// Validasi akses Owner
 if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'owner') {
     exit('Akses ditolak.');
 }
@@ -22,7 +23,13 @@ if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'owner') {
 $pesan = '';
 $jenisPesan = 'success';
 
-// Periode yang ditampilkan
+$namaBulan = array(
+    1 => 'Januari', 2 => 'Februari', 3 => 'Maret',
+    4 => 'April', 5 => 'Mei', 6 => 'Juni',
+    7 => 'Juli', 8 => 'Agustus', 9 => 'September',
+    10 => 'Oktober', 11 => 'November', 12 => 'Desember'
+);
+
 $bulanFilter = isset($_GET['bulan']) ? (int) $_GET['bulan'] : (int) date('m');
 $tahunFilter = isset($_GET['tahun']) ? (int) $_GET['tahun'] : (int) date('Y');
 
@@ -34,63 +41,107 @@ if ($tahunFilter < 2000 || $tahunFilter > 2100) {
     $tahunFilter = (int) date('Y');
 }
 
-$namaBulan = [
-    1 => 'Januari', 2 => 'Februari',
-    3 => 'Maret', 4 => 'April',
-    5 => 'Mei', 6 => 'Juni',
-    7 => 'Juli', 8 => 'Agustus',
-    9 => 'September', 10 => 'Oktober',
-    11 => 'November', 12 => 'Desember'
-];
-
-// =============================================
-// HAPUS TARGET
-// =============================================
-
-if ($_SERVER['REQUEST_METHOD'] === 'POST'
-    && isset($_POST['hapus_target'])) {
-
-    $idHapus = (int) $_POST['id_target'];
-
-    $stmt = mysqli_prepare(
-        $koneksi,
-        "DELETE FROM tb_target_sales WHERE id_target = ?"
-    );
-
-    mysqli_stmt_bind_param($stmt, "i", $idHapus);
-
-    if (mysqli_stmt_execute($stmt)) {
-        $pesan = 'Target penjualan berhasil dihapus.';
-    } else {
-        $pesan = 'Gagal menghapus target penjualan.';
-        $jenisPesan = 'danger';
-    }
-
-    mysqli_stmt_close($stmt);
+function target_h($value)
+{
+    return htmlspecialchars((string) $value, ENT_QUOTES, 'UTF-8');
 }
 
-// =============================================
+function target_rupiah($value)
+{
+    return 'Rp ' . number_format((float) $value, 0, ',', '.');
+}
+
+// =====================================================
+// HAPUS TARGET
+// =====================================================
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['hapus_target'])) {
+
+    $idHapus = isset($_POST['id_target']) ? (int) $_POST['id_target'] : 0;
+
+    if ($idHapus > 0) {
+
+        $stmt = mysqli_prepare(
+            $koneksi,
+            "DELETE FROM tb_target_sales WHERE id_target = ?"
+        );
+
+        if ($stmt) {
+
+            mysqli_stmt_bind_param($stmt, "i", $idHapus);
+
+            if (mysqli_stmt_execute($stmt)) {
+                $pesan = 'Target penjualan berhasil dihapus.';
+            } else {
+                $pesan = 'Gagal menghapus target penjualan: ' . mysqli_error($koneksi);
+                $jenisPesan = 'danger';
+            }
+
+            mysqli_stmt_close($stmt);
+
+        } else {
+            $pesan = 'Query hapus target tidak dapat diproses.';
+            $jenisPesan = 'danger';
+        }
+
+    } else {
+        $pesan = 'Data target yang akan dihapus tidak valid.';
+        $jenisPesan = 'danger';
+    }
+}
+
+// =====================================================
 // SIMPAN / UPDATE TARGET
-// =============================================
+// =====================================================
 
-if ($_SERVER['REQUEST_METHOD'] === 'POST'
-    && isset($_POST['simpan_target'])) {
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['simpan_target'])) {
 
-    $idSales = (int) ($_POST['id_sales'] ?? 0);
-    $targetOmzet = trim($_POST['target_omzet'] ?? '');
-    $reward = trim($_POST['reward'] ?? '');
-    $periode = $_POST['periode'] ?? '';
-    $editId = (int) ($_POST['id_target'] ?? 0);
+    $idSales = isset($_POST['id_sales']) ? (int) $_POST['id_sales'] : 0;
+
+    $targetOmzet = trim(
+        isset($_POST['target_omzet']) ? $_POST['target_omzet'] : ''
+    );
+
+    $rewardTipe = isset($_POST['reward_tipe'])
+        ? $_POST['reward_tipe'] : 'nominal';
+
+    $rewardNilaiInput = trim(
+        isset($_POST['reward_nilai']) ? $_POST['reward_nilai'] : '0'
+    );
+
+    $periode = isset($_POST['periode']) ? $_POST['periode'] : '';
+
+    $editId = isset($_POST['id_target']) ? (int) $_POST['id_target'] : 0;
 
     $tanggal = DateTime::createFromFormat('!Y-m', $periode);
 
     if (!$tanggal || $tanggal->format('Y-m') !== $periode) {
+
         $pesan = 'Periode target tidak valid.';
         $jenisPesan = 'danger';
-    } elseif ($idSales <= 0 || !ctype_digit($targetOmzet)
-        || (float) $targetOmzet <= 0) {
 
-        $pesan = 'Pilih Sales dan masukkan target omzet yang valid.';
+    } elseif (
+        $idSales <= 0 ||
+        !ctype_digit($targetOmzet) ||
+        (float) $targetOmzet <= 0
+    ) {
+
+        $pesan = 'Pilih Sales dan masukkan target omzet berupa angka lebih dari 0.';
+        $jenisPesan = 'danger';
+
+    } elseif (!in_array($rewardTipe, array('nominal', 'persen'), true)) {
+
+        $pesan = 'Jenis reward tidak valid.';
+        $jenisPesan = 'danger';
+
+    } elseif (!is_numeric($rewardNilaiInput) || (float) $rewardNilaiInput < 0) {
+
+        $pesan = 'Nilai reward harus berupa angka nol atau lebih.';
+        $jenisPesan = 'danger';
+
+    } elseif ($rewardTipe === 'persen' && (float) $rewardNilaiInput > 100) {
+
+        $pesan = 'Insentif persentase tidak boleh lebih dari 100%.';
         $jenisPesan = 'danger';
 
     } else {
@@ -98,7 +149,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST'
         $bulan = (int) $tanggal->format('m');
         $tahun = (int) $tanggal->format('Y');
 
-        // Pastikan akun yang dipilih benar-benar Sales aktif
+        $rewardNilai = (float) $rewardNilaiInput;
+
+        // Pastikan akun yang dipilih merupakan Sales aktif.
         $stmt = mysqli_prepare(
             $koneksi,
             "SELECT id_user FROM tb_users
@@ -107,12 +160,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST'
              AND status = 'aktif'"
         );
 
-        mysqli_stmt_bind_param($stmt, "i", $idSales);
-        mysqli_stmt_execute($stmt);
-        mysqli_stmt_store_result($stmt);
+        $salesValid = false;
 
-        $salesValid = mysqli_stmt_num_rows($stmt) > 0;
-        mysqli_stmt_close($stmt);
+        if ($stmt) {
+
+            mysqli_stmt_bind_param($stmt, "i", $idSales);
+
+            mysqli_stmt_execute($stmt);
+
+            mysqli_stmt_store_result($stmt);
+
+            $salesValid = mysqli_stmt_num_rows($stmt) > 0;
+
+            mysqli_stmt_close($stmt);
+        }
 
         if (!$salesValid) {
 
@@ -121,9 +182,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST'
 
         } else {
 
-            // Jika sedang mengedit
+            // Kompatibilitas kolom reward lama.
+            if ($rewardTipe === 'persen') {
+
+                $rewardLegacy = 'Insentif ' .
+                    rtrim(
+                        rtrim(number_format($rewardNilai, 2, '.', ''), '0'),
+                        '.'
+                    ) . '%';
+
+            } else {
+
+                $rewardLegacy = (string) round($rewardNilai);
+            }
+
+            $berhasil = false;
+
             if ($editId > 0) {
 
+                // UPDATE TARGET
                 $stmt = mysqli_prepare(
                     $koneksi,
                     "UPDATE tb_target_sales
@@ -131,27 +208,40 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST'
                          bulan = ?,
                          tahun = ?,
                          target_omzet = ?,
-                         reward = ?
+                         reward = ?,
+                         reward_tipe = ?,
+                         reward_nilai = ?
                      WHERE id_target = ?"
                 );
 
-                mysqli_stmt_bind_param(
-                    $stmt,
-                    "iiiisi",
-                    $idSales,
-                    $bulan,
-                    $tahun,
-                    $targetOmzet,
-                    $reward,
-                    $editId
-                );
+                if ($stmt) {
 
-                $berhasil = mysqli_stmt_execute($stmt);
-                mysqli_stmt_close($stmt);
+                    mysqli_stmt_bind_param(
+                        $stmt,
+                        "iiiissdi",
+                        $idSales,
+                        $bulan,
+                        $tahun,
+                        $targetOmzet,
+                        $rewardLegacy,
+                        $rewardTipe,
+                        $rewardNilai,
+                        $editId
+                    );
+
+                    $berhasil = mysqli_stmt_execute($stmt);
+
+                    if (!$berhasil) {
+                        $pesan = 'Gagal memperbarui target: ' . mysqli_error($koneksi);
+                        $jenisPesan = 'danger';
+                    }
+
+                    mysqli_stmt_close($stmt);
+                }
 
             } else {
 
-                // Cek apakah target bulan tersebut sudah tersedia
+                // CEK TARGET SALES PADA PERIODE YANG SAMA
                 $stmt = mysqli_prepare(
                     $koneksi,
                     "SELECT id_target
@@ -162,76 +252,134 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST'
                      LIMIT 1"
                 );
 
-                mysqli_stmt_bind_param(
-                    $stmt,
-                    "iii",
-                    $idSales,
-                    $bulan,
-                    $tahun
-                );
+                $idTargetLama = 0;
 
-                mysqli_stmt_execute($stmt);
-                mysqli_stmt_bind_result($stmt, $idTargetLama);
+                if ($stmt) {
 
-                $sudahAda = mysqli_stmt_fetch($stmt);
-                mysqli_stmt_close($stmt);
+                    mysqli_stmt_bind_param(
+                        $stmt,
+                        "iii",
+                        $idSales,
+                        $bulan,
+                        $tahun
+                    );
+
+                    mysqli_stmt_execute($stmt);
+
+                    mysqli_stmt_bind_result($stmt, $idTargetLama);
+
+                    $sudahAda = mysqli_stmt_fetch($stmt);
+
+                    mysqli_stmt_close($stmt);
+
+                } else {
+                    $sudahAda = false;
+                }
 
                 if ($sudahAda) {
 
-                    // Perbarui target yang sudah ada
+                    // UPDATE JIKA TARGET SUDAH ADA
                     $stmt = mysqli_prepare(
                         $koneksi,
                         "UPDATE tb_target_sales
-                         SET target_omzet = ?, reward = ?
+                         SET target_omzet = ?,
+                             reward = ?,
+                             reward_tipe = ?,
+                             reward_nilai = ?
                          WHERE id_target = ?"
                     );
 
-                    mysqli_stmt_bind_param(
-                        $stmt,
-                        "ssi",
-                        $targetOmzet,
-                        $reward,
-                        $idTargetLama
-                    );
+                    if ($stmt) {
+
+                        mysqli_stmt_bind_param(
+                            $stmt,
+                            "sssdi",
+                            $targetOmzet,
+                            $rewardLegacy,
+                            $rewardTipe,
+                            $rewardNilai,
+                            $idTargetLama
+                        );
+
+                        $berhasil = mysqli_stmt_execute($stmt);
+
+                        if (!$berhasil) {
+                            $pesan = 'Gagal memperbarui target: ' . mysqli_error($koneksi);
+                            $jenisPesan = 'danger';
+                        }
+
+                        mysqli_stmt_close($stmt);
+                    }
 
                 } else {
 
-                    // Buat target baru
+                    // INSERT TARGET BARU
                     $stmt = mysqli_prepare(
                         $koneksi,
                         "INSERT INTO tb_target_sales
-                         (id_sales, bulan, tahun, target_omzet, reward)
-                         VALUES (?, ?, ?, ?, ?)"
+                         (
+                            id_sales,
+                            bulan,
+                            tahun,
+                            target_omzet,
+                            reward,
+                            reward_tipe,
+                            reward_nilai
+                         )
+                         VALUES (?, ?, ?, ?, ?, ?, ?)"
                     );
 
-                    mysqli_stmt_bind_param(
-                        $stmt,
-                        "iiiss",
-                        $idSales,
-                        $bulan,
-                        $tahun,
-                        $targetOmzet,
-                        $reward
-                    );
+                    if ($stmt) {
+
+                        mysqli_stmt_bind_param(
+                            $stmt,
+                            "iiisssd",
+                            $idSales,
+                            $bulan,
+                            $tahun,
+                            $targetOmzet,
+                            $rewardLegacy,
+                            $rewardTipe,
+                            $rewardNilai
+                        );
+
+                        $berhasil = mysqli_stmt_execute($stmt);
+
+                        if (!$berhasil) {
+                            $pesan = 'Gagal menyimpan target: ' . mysqli_error($koneksi);
+                            $jenisPesan = 'danger';
+                        }
+
+                        mysqli_stmt_close($stmt);
+                    }
                 }
-
-                $berhasil = mysqli_stmt_execute($stmt);
-                mysqli_stmt_close($stmt);
             }
 
             if ($berhasil) {
+
+                $urlKembali = 'dashboard_owner.php?menu=target_sales&bulan=' .
+                    $bulan . '&tahun=' . $tahun;
+
+                if (!headers_sent()) {
+                    header('Location: ' . $urlKembali);
+                    exit;
+                }
+
                 $pesan = 'Target penjualan berhasil disimpan.';
-            } else {
-                $pesan = 'Gagal menyimpan target: ' . mysqli_error($koneksi);
+                $jenisPesan = 'success';
+
+            } elseif ($pesan === '') {
+
+                $pesan = 'Target gagal disimpan. Periksa struktur tabel dan koneksi database.';
                 $jenisPesan = 'danger';
             }
         }
     }
 }
 
-// =============================================
-// AMBIL DATA SALES AKTIF
-// =============================================
+// =====================================================
+// DATA SALES AKTIF
+// =====================================================
 
 $dataSales = mysqli_query(
     $koneksi,
@@ -242,9 +390,9 @@ $dataSales = mysqli_query(
      ORDER BY nama ASC"
 );
 
-// =============================================
+// =====================================================
 // DATA EDIT TARGET
-// =============================================
+// =====================================================
 
 $dataEdit = null;
 
@@ -252,25 +400,33 @@ if (isset($_GET['edit'])) {
 
     $idEdit = (int) $_GET['edit'];
 
-    $stmt = mysqli_prepare(
-        $koneksi,
-        "SELECT *
-         FROM tb_target_sales
-         WHERE id_target = ?"
-    );
+    if ($idEdit > 0) {
 
-    mysqli_stmt_bind_param($stmt, "i", $idEdit);
-    mysqli_stmt_execute($stmt);
+        $stmt = mysqli_prepare(
+            $koneksi,
+            "SELECT * FROM tb_target_sales WHERE id_target = ?"
+        );
 
-    $resultEdit = mysqli_stmt_get_result($stmt);
-    $dataEdit = mysqli_fetch_assoc($resultEdit);
+        if ($stmt) {
 
-    mysqli_stmt_close($stmt);
+            mysqli_stmt_bind_param($stmt, "i", $idEdit);
+
+            mysqli_stmt_execute($stmt);
+
+            $resultEdit = mysqli_stmt_get_result($stmt);
+
+            if ($resultEdit) {
+                $dataEdit = mysqli_fetch_assoc($resultEdit);
+            }
+
+            mysqli_stmt_close($stmt);
+        }
+    }
 }
 
-// =============================================
-// AMBIL TARGET DAN OMZET AKTUAL SALES
-// =============================================
+// =====================================================
+// TARGET DAN PENJUALAN AKTUAL
+// =====================================================
 
 $stmt = mysqli_prepare(
     $koneksi,
@@ -282,6 +438,8 @@ $stmt = mysqli_prepare(
         t.tahun,
         t.target_omzet,
         t.reward,
+        t.reward_tipe,
+        t.reward_nilai,
         COALESCE(p.omzet, 0) AS omzet
 
      FROM tb_target_sales t
@@ -293,67 +451,112 @@ $stmt = mysqli_prepare(
         SELECT
             id_sales,
             SUM(total_harga) AS omzet
+
         FROM tb_transaksi
+
         WHERE status_transaksi = 'selesai'
-        AND MONTH(tanggal_transaksi) = ?
-        AND YEAR(tanggal_transaksi) = ?
+          AND MONTH(tanggal_transaksi) = ?
+          AND YEAR(tanggal_transaksi) = ?
+
         GROUP BY id_sales
+
      ) p ON t.id_sales = p.id_sales
 
      WHERE t.bulan = ?
-     AND t.tahun = ?
+       AND t.tahun = ?
 
      ORDER BY u.nama ASC"
 );
 
-mysqli_stmt_bind_param(
-    $stmt,
-    "iiii",
-    $bulanFilter,
-    $tahunFilter,
-    $bulanFilter,
-    $tahunFilter
-);
-
-mysqli_stmt_execute($stmt);
-
-$dataTarget = mysqli_stmt_get_result($stmt);
-
-// =============================================
-// STATISTIK
-// =============================================
+$rows = array();
 
 $totalTarget = 0;
 $totalOmzet = 0;
 $totalTercapai = 0;
+$totalInsentif = 0;
 
-$rows = [];
+if ($stmt) {
 
-while ($row = mysqli_fetch_assoc($dataTarget)) {
+    mysqli_stmt_bind_param(
+        $stmt,
+        "iiii",
+        $bulanFilter,
+        $tahunFilter,
+        $bulanFilter,
+        $tahunFilter
+    );
 
-    $target = (float) $row['target_omzet'];
-    $omzet = (float) $row['omzet'];
+    mysqli_stmt_execute($stmt);
 
-    $persen = $target > 0
-        ? ($omzet / $target) * 100
-        : 0;
+    $dataTarget = mysqli_stmt_get_result($stmt);
 
-    $row['persen'] = $persen;
+    if ($dataTarget) {
 
-    $rows[] = $row;
+        while ($row = mysqli_fetch_assoc($dataTarget)) {
 
-    $totalTarget += $target;
-    $totalOmzet += $omzet;
+            $target = (float) $row['target_omzet'];
+            $omzet = (float) $row['omzet'];
 
-    if ($omzet >= $target) {
-        $totalTercapai++;
+            $tercapai = ($target > 0 && $omzet >= $target);
+
+            $persen = $target > 0
+                ? ($omzet / $target) * 100
+                : 0;
+
+            $rewardTipe = isset($row['reward_tipe'])
+                ? $row['reward_tipe']
+                : 'nominal';
+
+            $rewardNilai = isset($row['reward_nilai'])
+                ? (float) $row['reward_nilai']
+                : 0;
+
+            // Kompatibilitas data lama.
+            if (
+                $rewardNilai <= 0 &&
+                $rewardTipe === 'nominal' &&
+                isset($row['reward']) &&
+                is_numeric($row['reward'])
+            ) {
+                $rewardNilai = (float) $row['reward'];
+            }
+
+            $insentif = 0;
+
+            if ($tercapai) {
+
+                if ($rewardTipe === 'persen') {
+
+                    $insentif = $omzet * ($rewardNilai / 100);
+
+                } else {
+
+                    $insentif = $rewardNilai;
+                }
+            }
+
+            $row['persen'] = $persen;
+            $row['tercapai'] = $tercapai;
+            $row['reward_nilai_hitung'] = $rewardNilai;
+            $row['insentif'] = $insentif;
+
+            $rows[] = $row;
+
+            $totalTarget += $target;
+            $totalOmzet += $omzet;
+            $totalInsentif += $insentif;
+
+            if ($tercapai) {
+                $totalTercapai++;
+            }
+        }
     }
+
+    mysqli_stmt_close($stmt);
 }
 
-mysqli_stmt_close($stmt);
-
 $persenKeseluruhan = $totalTarget > 0
-    ? min(100, ($totalOmzet / $totalTarget) * 100)
+    ? ($totalOmzet / $totalTarget) * 100
     : 0;
 
 ?>
@@ -363,10 +566,11 @@ $persenKeseluruhan = $totalTarget > 0
     padding: 20px;
 }
 
-.target-sales-page .card {
+.target-sales-page .card,
+.target-sales-page .stat-box {
     border: 1px solid #e5e7eb;
-    border-radius: 12px;
-    box-shadow: 0 3px 10px rgba(0,0,0,.04);
+    border-radius: 14px;
+    box-shadow: 0 3px 12px rgba(0,0,0,.04);
 }
 
 .target-sales-page .card-header {
@@ -376,30 +580,28 @@ $persenKeseluruhan = $totalTarget > 0
 
 .target-sales-page .stat-box {
     padding: 20px;
-    border-radius: 12px;
-    background: white;
-    border: 1px solid #e5e7eb;
+    background: #fff;
     height: 100%;
+}
+
+.target-sales-page .stat-box .stat-label {
+    color: #64748b;
+    font-size: 14px;
 }
 
 .target-sales-page .stat-box h4 {
     font-weight: 700;
-    margin-top: 8px;
-}
-
-.target-sales-page .progress {
-    height: 10px;
-    border-radius: 20px;
+    margin: 9px 0 0;
 }
 
 .target-sales-page .form-control,
 .target-sales-page .form-select {
-    border-radius: 8px;
-    min-height: 42px;
+    min-height: 43px;
+    border-radius: 9px;
 }
 
 .target-sales-page .btn {
-    border-radius: 8px;
+    border-radius: 9px;
 }
 
 .target-sales-page table th {
@@ -411,8 +613,20 @@ $persenKeseluruhan = $totalTarget > 0
     vertical-align: middle;
 }
 
+.target-sales-page .progress {
+    height: 9px;
+    border-radius: 20px;
+    background: #e9ecef;
+}
+
 .target-sales-page .table-responsive {
     overflow-x: auto;
+}
+
+.target-sales-page .help-text {
+    font-size: 12px;
+    color: #64748b;
+    margin-top: 5px;
 }
 </style>
 
@@ -430,59 +644,88 @@ $persenKeseluruhan = $totalTarget > 0
             </h2>
 
             <p class="text-secondary mb-0">
-                Kelola target omzet dan reward untuk setiap Sales.
+                Kelola target omzet, pantau pencapaian, dan hitung insentif Sales.
             </p>
         </div>
 
         <span class="badge bg-primary p-3">
-            <?= $namaBulan[$bulanFilter] . ' ' . $tahunFilter; ?>
+            <?= target_h($namaBulan[$bulanFilter] . ' ' . $tahunFilter); ?>
         </span>
 
     </div>
 
-    <!-- NOTIFIKASI -->
+    <!-- PESAN -->
     <?php if ($pesan !== ''): ?>
-        <div class="alert alert-<?= $jenisPesan; ?> alert-dismissible fade show">
-            <?= htmlspecialchars($pesan); ?>
-            <button type="button" class="btn-close"
-                    data-bs-dismiss="alert"></button>
+
+        <div class="alert alert-<?= target_h($jenisPesan); ?> alert-dismissible fade show">
+
+            <?= target_h($pesan); ?>
+
+            <button type="button"
+                    class="btn-close"
+                    data-bs-dismiss="alert">
+            </button>
+
         </div>
+
     <?php endif; ?>
 
-    <!-- STATISTIK -->
+    <!-- RINGKASAN -->
     <div class="row g-3 mb-4">
 
-        <div class="col-md-3">
+        <div class="col-md-6 col-xl-3">
             <div class="stat-box">
-                <span class="text-secondary">Total Target Omzet</span>
+
+                <div class="stat-label">
+                    Total Target Omzet
+                </div>
+
                 <h4 class="text-primary">
-                    Rp <?= number_format($totalTarget, 0, ',', '.'); ?>
+                    <?= target_rupiah($totalTarget); ?>
                 </h4>
+
             </div>
         </div>
 
-        <div class="col-md-3">
+        <div class="col-md-6 col-xl-3">
             <div class="stat-box">
-                <span class="text-secondary">Total Penjualan</span>
+
+                <div class="stat-label">
+                    Total Penjualan Aktual
+                </div>
+
                 <h4 class="text-success">
-                    Rp <?= number_format($totalOmzet, 0, ',', '.'); ?>
+                    <?= target_rupiah($totalOmzet); ?>
                 </h4>
+
             </div>
         </div>
 
-        <div class="col-md-3">
+        <div class="col-md-6 col-xl-3">
             <div class="stat-box">
-                <span class="text-secondary">Target Tercapai</span>
+
+                <div class="stat-label">
+                    Sales Mencapai Target
+                </div>
+
                 <h4 class="text-success">
-                    <?= $totalTercapai; ?> Sales
+                    <?= (int) $totalTercapai; ?> Sales
                 </h4>
+
             </div>
         </div>
 
-        <div class="col-md-3">
+        <div class="col-md-6 col-xl-3">
             <div class="stat-box">
-                <span class="text-secondary">Pencapaian Keseluruhan</span>
-                <h4><?= number_format($persenKeseluruhan, 1); ?>%</h4>
+
+                <div class="stat-label">
+                    Total Insentif yang Diperoleh
+                </div>
+
+                <h4 class="text-dark">
+                    <?= target_rupiah($totalInsentif); ?>
+                </h4>
+
             </div>
         </div>
 
@@ -492,137 +735,250 @@ $persenKeseluruhan = $totalTarget > 0
     <div class="card mb-4">
 
         <div class="card-header py-3">
+
             <i class="bi bi-plus-circle text-primary"></i>
+
             <?= $dataEdit ? 'Edit Target Penjualan' : 'Buat Target Penjualan'; ?>
+
         </div>
 
         <div class="card-body">
 
-            <form method="POST"
-                  action="dashboard_owner.php?menu=target_sales">
+            <?php if (!$dataSales || mysqli_num_rows($dataSales) === 0): ?>
 
-                <?php if ($dataEdit): ?>
-                    <input type="hidden" name="id_target"
-                           value="<?= (int) $dataEdit['id_target']; ?>">
-                <?php endif; ?>
+                <div class="alert alert-warning mb-0">
 
-                <div class="row g-3">
-
-                    <div class="col-md-4">
-
-                        <label class="form-label fw-semibold">
-                            Pilih Sales
-                        </label>
-
-                        <select name="id_sales" class="form-select" required>
-
-                            <option value="">-- Pilih Sales --</option>
-
-                            <?php
-                            if ($dataSales) {
-                                mysqli_data_seek($dataSales, 0);
-
-                                while ($sales = mysqli_fetch_assoc($dataSales)):
-                            ?>
-
-                                <option
-                                    value="<?= (int) $sales['id_user']; ?>"
-                                    <?= ($dataEdit && $dataEdit['id_sales'] == $sales['id_user'])
-                                        ? 'selected' : ''; ?>>
-
-                                    <?= htmlspecialchars($sales['nama']); ?>
-
-                                </option>
-
-                            <?php
-                                endwhile;
-                            }
-                            ?>
-
-                        </select>
-
-                    </div>
-
-                    <div class="col-md-4">
-
-                        <label class="form-label fw-semibold">
-                            Periode Target
-                        </label>
-
-                        <input
-                            type="month"
-                            name="periode"
-                            class="form-control"
-                            required
-                            value="<?= $dataEdit
-                                ? sprintf('%04d-%02d', $dataEdit['tahun'], $dataEdit['bulan'])
-                                : sprintf('%04d-%02d', $tahunFilter, $bulanFilter); ?>">
-
-                    </div>
-
-                    <div class="col-md-4">
-
-                        <label class="form-label fw-semibold">
-                            Target Omzet (Rp)
-                        </label>
-
-                        <input
-                            type="number"
-                            name="target_omzet"
-                            class="form-control"
-                            min="1"
-                            step="1"
-                            placeholder="Contoh: 10000000"
-                            required
-                            value="<?= $dataEdit
-                                ? htmlspecialchars($dataEdit['target_omzet'])
-                                : ''; ?>">
-
-                    </div>
-
-                    <div class="col-md-8">
-
-                        <label class="form-label fw-semibold">
-                            Reward Jika Target Tercapai
-                        </label>
-
-                        <input
-                            type="text"
-                            name="reward"
-                            class="form-control"
-                            maxlength="255"
-                            placeholder="Contoh: Bonus Rp 500.000 atau Insentif 5%"
-                            value="<?= $dataEdit
-                                ? htmlspecialchars($dataEdit['reward'] ?? '')
-                                : ''; ?>">
-
-                    </div>
-
-                    <div class="col-md-4 d-flex align-items-end gap-2">
-
-                        <button type="submit"
-                                name="simpan_target"
-                                class="btn btn-primary flex-fill">
-
-                            <i class="bi bi-save"></i>
-                            <?= $dataEdit ? 'Update Target' : 'Simpan Target'; ?>
-
-                        </button>
-
-                        <?php if ($dataEdit): ?>
-                            <a href="dashboard_owner.php?menu=target_sales"
-                               class="btn btn-secondary">
-                                Batal
-                            </a>
-                        <?php endif; ?>
-
-                    </div>
+                    Belum ada akun Sales aktif.
+                    Tambahkan atau aktifkan akun dengan role Sales terlebih dahulu.
 
                 </div>
 
-            </form>
+            <?php else: ?>
+
+                <form method="POST"
+                      action="dashboard_owner.php?menu=target_sales">
+
+                    <?php if ($dataEdit): ?>
+
+                        <input type="hidden"
+                               name="id_target"
+                               value="<?= (int) $dataEdit['id_target']; ?>">
+
+                    <?php endif; ?>
+
+                    <div class="row g-3">
+
+                        <!-- SALES -->
+                        <div class="col-md-4">
+
+                            <label class="form-label fw-semibold">
+                                Pilih Sales
+                            </label>
+
+                            <select name="id_sales"
+                                    class="form-select"
+                                    required>
+
+                                <option value="">
+                                    -- Pilih Sales --
+                                </option>
+
+                                <?php
+
+                                mysqli_data_seek($dataSales, 0);
+
+                                while ($sales = mysqli_fetch_assoc($dataSales)):
+
+                                ?>
+
+                                    <option
+                                        value="<?= (int) $sales['id_user']; ?>"
+                                        <?= (
+                                            $dataEdit &&
+                                            (int) $dataEdit['id_sales'] === (int) $sales['id_user']
+                                        ) ? 'selected' : ''; ?>
+                                    >
+
+                                        <?= target_h($sales['nama']); ?>
+
+                                    </option>
+
+                                <?php endwhile; ?>
+
+                            </select>
+
+                        </div>
+
+                        <!-- PERIODE -->
+                        <div class="col-md-4">
+
+                            <label class="form-label fw-semibold">
+                                Periode Target
+                            </label>
+
+                            <input
+                                type="month"
+                                name="periode"
+                                class="form-control"
+                                required
+                                value="<?= $dataEdit
+                                    ? target_h(sprintf('%04d-%02d', $dataEdit['tahun'], $dataEdit['bulan']))
+                                    : target_h(sprintf('%04d-%02d', $tahunFilter, $bulanFilter)); ?>"
+                            >
+
+                        </div>
+
+                        <!-- TARGET OMZET -->
+                        <div class="col-md-4">
+
+                            <label class="form-label fw-semibold">
+                                Target Omzet (Rp)
+                            </label>
+
+                            <input
+                                type="number"
+                                name="target_omzet"
+                                class="form-control"
+                                min="1"
+                                step="1"
+                                required
+                                placeholder="Contoh: 10000000"
+                                value="<?= $dataEdit ? target_h($dataEdit['target_omzet']) : ''; ?>"
+                            >
+
+                        </div>
+
+                        <!-- JENIS REWARD -->
+                        <div class="col-md-4">
+
+                            <label class="form-label fw-semibold">
+                                Jenis Reward
+                            </label>
+
+                            <?php
+
+                            $jenisRewardEdit = $dataEdit &&
+                                isset($dataEdit['reward_tipe'])
+                                ? $dataEdit['reward_tipe']
+                                : 'nominal';
+
+                            ?>
+
+                            <select
+                                name="reward_tipe"
+                                id="reward_tipe"
+                                class="form-select"
+                                required
+                            >
+
+                                <option
+                                    value="nominal"
+                                    <?= $jenisRewardEdit === 'nominal' ? 'selected' : ''; ?>
+                                >
+                                    Bonus Nominal (Rp)
+                                </option>
+
+                                <option
+                                    value="persen"
+                                    <?= $jenisRewardEdit === 'persen' ? 'selected' : ''; ?>
+                                >
+                                    Insentif Persentase (%)
+                                </option>
+
+                            </select>
+
+                        </div>
+
+                        <!-- NILAI REWARD -->
+                        <div class="col-md-4">
+
+                            <label
+                                class="form-label fw-semibold"
+                                id="label_reward_nilai"
+                            >
+                                Nilai Bonus (Rp)
+                            </label>
+
+                            <?php
+
+                            $nilaiRewardEdit = '';
+
+                            if ($dataEdit) {
+
+                                if (
+                                    isset($dataEdit['reward_nilai']) &&
+                                    (float) $dataEdit['reward_nilai'] > 0
+                                ) {
+
+                                    $nilaiRewardEdit = $dataEdit['reward_nilai'];
+
+                                } elseif (
+                                    isset($dataEdit['reward']) &&
+                                    is_numeric($dataEdit['reward'])
+                                ) {
+
+                                    $nilaiRewardEdit = $dataEdit['reward'];
+                                }
+                            }
+
+                            ?>
+
+                            <input
+                                type="number"
+                                name="reward_nilai"
+                                id="reward_nilai"
+                                class="form-control"
+                                min="0"
+                                step="0.01"
+                                placeholder="Contoh: 500000"
+                                value="<?= target_h($nilaiRewardEdit); ?>"
+                            >
+
+                            <div
+                                class="help-text"
+                                id="help_reward_nilai"
+                            >
+                                Bonus dibayarkan jika Sales mencapai target.
+                            </div>
+
+                        </div>
+
+                        <!-- TOMBOL -->
+                        <div class="col-md-4 d-flex align-items-end gap-2">
+
+                            <button
+                                type="submit"
+                                name="simpan_target"
+                                class="btn btn-primary flex-fill"
+                            >
+
+                                <i class="bi bi-save"></i>
+
+                                <?= $dataEdit ? 'Update Target' : 'Simpan Target'; ?>
+
+                            </button>
+
+                            <?php if ($dataEdit): ?>
+
+                                <a
+                                    href="dashboard_owner.php?menu=target_sales"
+                                    class="btn btn-secondary"
+                                >
+                                    Batal
+                                </a>
+
+                            <?php endif; ?>
+
+                        </div>
+
+                    </div>
+
+                </form>
+
+            <?php endif; ?>
 
         </div>
+
     </div>
 
     <!-- FILTER PERIODE -->
@@ -630,11 +986,17 @@ $persenKeseluruhan = $totalTarget > 0
 
         <div class="card-body">
 
-            <form method="GET"
-                  action="dashboard_owner.php"
-                  class="row g-3 align-items-end">
+            <form
+                method="GET"
+                action="dashboard_owner.php"
+                class="row g-3 align-items-end"
+            >
 
-                <input type="hidden" name="menu" value="target_sales">
+                <input
+                    type="hidden"
+                    name="menu"
+                    value="target_sales"
+                >
 
                 <div class="col-md-4">
 
@@ -646,10 +1008,12 @@ $persenKeseluruhan = $totalTarget > 0
 
                         <?php foreach ($namaBulan as $nomor => $nama): ?>
 
-                            <option value="<?= $nomor; ?>"
-                                <?= $bulanFilter == $nomor ? 'selected' : ''; ?>>
+                            <option
+                                value="<?= (int) $nomor; ?>"
+                                <?= $bulanFilter === $nomor ? 'selected' : ''; ?>
+                            >
 
-                                <?= $nama; ?>
+                                <?= target_h($nama); ?>
 
                             </option>
 
@@ -668,13 +1032,19 @@ $persenKeseluruhan = $totalTarget > 0
                     <select name="tahun" class="form-select">
 
                         <?php
-                        for ($tahun = date('Y') - 2;
-                             $tahun <= date('Y') + 2;
-                             $tahun++):
+
+                        for (
+                            $tahun = (int) date('Y') - 2;
+                            $tahun <= (int) date('Y') + 2;
+                            $tahun++
+                        ):
+
                         ?>
 
-                            <option value="<?= $tahun; ?>"
-                                <?= $tahunFilter == $tahun ? 'selected' : ''; ?>>
+                            <option
+                                value="<?= $tahun; ?>"
+                                <?= $tahunFilter === $tahun ? 'selected' : ''; ?>
+                            >
 
                                 <?= $tahun; ?>
 
@@ -688,9 +1058,14 @@ $persenKeseluruhan = $totalTarget > 0
 
                 <div class="col-md-4">
 
-                    <button type="submit" class="btn btn-primary w-100">
+                    <button
+                        type="submit"
+                        class="btn btn-primary w-100"
+                    >
+
                         <i class="bi bi-search"></i>
                         Tampilkan Data
+
                     </button>
 
                 </div>
@@ -698,33 +1073,42 @@ $persenKeseluruhan = $totalTarget > 0
             </form>
 
         </div>
+
     </div>
 
-    <!-- TABEL TARGET -->
+    <!-- TABEL PENCAPAIAN -->
     <div class="card">
 
         <div class="card-header py-3">
+
             <i class="bi bi-bar-chart-line text-primary"></i>
+
             Pencapaian Target Sales
+
         </div>
 
         <div class="card-body">
 
             <div class="table-responsive">
 
-                <table class="table table-bordered table-hover">
+                <table class="table table-bordered table-hover align-middle">
 
                     <thead>
+
                         <tr>
+
                             <th>No</th>
                             <th>Nama Sales</th>
                             <th>Target Omzet</th>
                             <th>Penjualan Aktual</th>
                             <th>Pencapaian</th>
                             <th>Reward</th>
+                            <th>Insentif Diperoleh</th>
                             <th>Status</th>
                             <th>Aksi</th>
+
                         </tr>
+
                     </thead>
 
                     <tbody>
@@ -734,61 +1118,110 @@ $persenKeseluruhan = $totalTarget > 0
                         <?php foreach ($rows as $index => $row): ?>
 
                             <?php
-                            $tercapai = $row['omzet'] >= $row['target_omzet'];
-                            $persen = $row['persen'];
-                            $lebar = min(100, $persen);
+
+                            $lebar = min(100, (float) $row['persen']);
+
+                            $rewardTipeRow = isset($row['reward_tipe'])
+                                ? $row['reward_tipe']
+                                : 'nominal';
+
                             ?>
 
                             <tr>
 
-                                <td><?= $index + 1; ?></td>
+                                <td>
+                                    <?= $index + 1; ?>
+                                </td>
 
                                 <td class="fw-semibold">
-                                    <?= htmlspecialchars($row['nama']); ?>
+                                    <?= target_h($row['nama']); ?>
                                 </td>
 
                                 <td>
-                                    Rp <?= number_format($row['target_omzet'], 0, ',', '.'); ?>
+                                    <?= target_rupiah($row['target_omzet']); ?>
                                 </td>
 
                                 <td>
-                                    Rp <?= number_format($row['omzet'], 0, ',', '.'); ?>
+                                    <?= target_rupiah($row['omzet']); ?>
                                 </td>
 
-                                <td style="min-width:160px;">
+                                <!-- PENCAPAIAN -->
+                                <td style="min-width:155px;">
 
                                     <div class="fw-semibold mb-1">
-                                        <?= number_format($persen, 1); ?>%
+
+                                        <?= number_format(
+                                            $row['persen'],
+                                            1,
+                                            ',',
+                                            '.'
+                                        ); ?>%
+
                                     </div>
 
                                     <div class="progress">
 
                                         <div
-                                            class="progress-bar <?= $tercapai
-                                                ? 'bg-success'
-                                                : 'bg-primary'; ?>"
-                                            style="width: <?= $lebar; ?>%">
+                                            class="progress-bar <?= $row['tercapai'] ? 'bg-success' : 'bg-primary'; ?>"
+                                            role="progressbar"
+                                            style="width: <?= $lebar; ?>%;"
+                                            aria-valuenow="<?= $lebar; ?>"
+                                            aria-valuemin="0"
+                                            aria-valuemax="100"
+                                        >
                                         </div>
 
                                     </div>
 
                                 </td>
 
-                                <td>
-    <?php
-    $reward = $row['reward'] ?? '';
-
-    if ($reward !== '' && is_numeric($reward)) {
-        echo 'Rp ' . number_format((float)$reward, 0, ',', '.');
-    } else {
-        echo htmlspecialchars($reward ?: '-');
-    }
-    ?>
-</td>
-
+                                <!-- REWARD -->
                                 <td>
 
-                                    <?php if ($tercapai): ?>
+                                    <?php if ($rewardTipeRow === 'persen'): ?>
+
+                                        <?= number_format(
+                                            $row['reward_nilai_hitung'],
+                                            2,
+                                            ',',
+                                            '.'
+                                        ); ?>% dari omzet
+
+                                    <?php else: ?>
+
+                                        <?= target_rupiah(
+                                            $row['reward_nilai_hitung']
+                                        ); ?>
+
+                                    <?php endif; ?>
+
+                                </td>
+
+                                <!-- INSENTIF -->
+                                <td class="fw-semibold">
+
+                                    <?php if ($row['tercapai']): ?>
+
+                                        <span class="text-success">
+
+                                            <?= target_rupiah($row['insentif']); ?>
+
+                                        </span>
+
+                                    <?php else: ?>
+
+                                        <span class="text-secondary">
+                                            Belum diperoleh
+                                        </span>
+
+                                    <?php endif; ?>
+
+                                </td>
+
+                                <!-- STATUS -->
+                                <td>
+
+                                    <?php if ($row['tercapai']): ?>
 
                                         <span class="badge bg-success">
                                             Tercapai
@@ -804,28 +1237,38 @@ $persenKeseluruhan = $totalTarget > 0
 
                                 </td>
 
-                                <td style="min-width:120px;">
+                                <!-- AKSI -->
+                                <td style="min-width:105px;">
 
                                     <a
-                                        href="dashboard_owner.php?menu=target_sales&edit=<?= $row['id_target']; ?>"
-                                        class="btn btn-sm btn-warning">
+                                        href="dashboard_owner.php?menu=target_sales&edit=<?= (int) $row['id_target']; ?>&bulan=<?= $bulanFilter; ?>&tahun=<?= $tahunFilter; ?>"
+                                        class="btn btn-sm btn-warning"
+                                        title="Edit target"
+                                    >
 
                                         <i class="bi bi-pencil"></i>
 
                                     </a>
 
-                                    <form method="POST"
-                                          action="dashboard_owner.php?menu=target_sales&bulan=<?= $bulanFilter; ?>&tahun=<?= $tahunFilter; ?>"
-                                          class="d-inline"
-                                          onsubmit="return confirm('Yakin ingin menghapus target ini?')">
+                                    <form
+                                        method="POST"
+                                        action="dashboard_owner.php?menu=target_sales&bulan=<?= $bulanFilter; ?>&tahun=<?= $tahunFilter; ?>"
+                                        class="d-inline"
+                                        onsubmit="return confirm('Yakin ingin menghapus target penjualan ini?');"
+                                    >
 
-                                        <input type="hidden"
-                                               name="id_target"
-                                               value="<?= $row['id_target']; ?>">
+                                        <input
+                                            type="hidden"
+                                            name="id_target"
+                                            value="<?= (int) $row['id_target']; ?>"
+                                        >
 
-                                        <button type="submit"
-                                                name="hapus_target"
-                                                class="btn btn-sm btn-danger">
+                                        <button
+                                            type="submit"
+                                            name="hapus_target"
+                                            class="btn btn-sm btn-danger"
+                                            title="Hapus target"
+                                        >
 
                                             <i class="bi bi-trash"></i>
 
@@ -842,26 +1285,141 @@ $persenKeseluruhan = $totalTarget > 0
                     <?php else: ?>
 
                         <tr>
-                            <td colspan="8" class="text-center py-4 text-secondary">
+
+                            <td colspan="9" class="text-center py-4 text-secondary">
 
                                 <i class="bi bi-inbox fs-2 d-block mb-2"></i>
 
-                                Belum ada target penjualan untuk periode ini.
+                                Belum ada target penjualan untuk periode
+
+                                <?= target_h(
+                                    $namaBulan[$bulanFilter] . ' ' . $tahunFilter
+                                ); ?>.
 
                             </td>
+
                         </tr>
 
                     <?php endif; ?>
 
                     </tbody>
 
+                    <?php if (count($rows) > 0): ?>
+
+                        <tfoot>
+
+                            <tr class="fw-bold">
+
+                                <td colspan="2">
+                                    TOTAL
+                                </td>
+
+                                <td>
+                                    <?= target_rupiah($totalTarget); ?>
+                                </td>
+
+                                <td>
+                                    <?= target_rupiah($totalOmzet); ?>
+                                </td>
+
+                                <td>
+                                    <?= number_format(
+                                        $persenKeseluruhan,
+                                        1,
+                                        ',',
+                                        '.'
+                                    ); ?>%
+                                </td>
+
+                                <td>-</td>
+
+                                <td class="text-success">
+                                    <?= target_rupiah($totalInsentif); ?>
+                                </td>
+
+                                <td colspan="2">
+
+                                    <?= (int) $totalTercapai; ?>
+                                    Sales tercapai
+
+                                </td>
+
+                            </tr>
+
+                        </tfoot>
+
+                    <?php endif; ?>
+
                 </table>
 
             </div>
 
+            <div class="small text-secondary mt-2">
+
+                Catatan: omzet dihitung dari transaksi berstatus
+                <strong>selesai</strong> pada bulan dan tahun yang dipilih.
+                Insentif baru dihitung setelah Sales mencapai target.
+
+            </div>
+
         </div>
+
     </div>
 
 </div>
 </div>
 </div>
+
+<script>
+
+(function () {
+
+    var tipe = document.getElementById('reward_tipe');
+
+    var label = document.getElementById('label_reward_nilai');
+
+    var input = document.getElementById('reward_nilai');
+
+    var bantuan = document.getElementById('help_reward_nilai');
+
+    if (!tipe || !label || !input || !bantuan) {
+        return;
+    }
+
+    function sesuaikanReward() {
+
+        if (tipe.value === 'persen') {
+
+            label.textContent = 'Persentase Insentif (%)';
+
+            input.placeholder = 'Contoh: 5';
+
+            input.max = '100';
+
+            input.step = '0.01';
+
+            bantuan.textContent =
+                'Insentif dihitung dari omzet aktual jika Sales mencapai target.';
+
+        } else {
+
+            label.textContent = 'Nilai Bonus (Rp)';
+
+            input.placeholder = 'Contoh: 500000';
+
+            input.removeAttribute('max');
+
+            input.step = '1';
+
+            bantuan.textContent =
+                'Bonus nominal dibayarkan jika Sales mencapai target.';
+        }
+    }
+
+    tipe.addEventListener('change', sesuaikanReward);
+
+    sesuaikanReward();
+
+})();
+
+</script>
